@@ -41,10 +41,11 @@ export default function AdminSidebar() {
   const pathname = usePathname();
 
   return (
+    <>
     <motion.aside
       animate={{ width: collapsed ? 72 : 240 }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="relative z-30 h-[calc(100vh-2rem)] rounded-2xl bg-charcoal/30 border border-white/5 backdrop-blur-md flex flex-col justify-between py-6 px-3 shadow-premium transition-all select-none shrink-0"
+      className="hidden md:flex relative z-30 h-[calc(100vh-2rem)] rounded-2xl bg-charcoal/30 border border-white/5 backdrop-blur-md flex-col justify-between py-6 px-3 shadow-premium transition-all select-none shrink-0"
     >
       <div className="space-y-6">
         {/* Sidebar Header */}
@@ -144,5 +145,26 @@ export default function AdminSidebar() {
         </button>
       </div>
     </motion.aside>
+
+    {/* Mobile Bottom Navigation Capsule */}
+    <div className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-charcoal/90 border border-white/5 backdrop-blur-md rounded-2xl py-2.5 px-4 flex items-center justify-around shadow-premium">
+      {SIDEBAR_ITEMS.map((item) => {
+        const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
+        const Icon = item.icon;
+
+        return (
+          <Link key={item.name} href={item.href} className="relative p-2 rounded-xl transition-colors">
+            <Icon className={`w-5 h-5 ${isActive ? 'text-accent-cyan' : 'text-stone hover:text-warm-white'}`} />
+            {isActive && (
+              <motion.div 
+                layoutId="activeTabMobile"
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-accent-cyan" 
+              />
+            )}
+          </Link>
+        );
+      })}
+    </div>
+    </>
   );
 }

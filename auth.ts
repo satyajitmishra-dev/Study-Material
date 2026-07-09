@@ -133,16 +133,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return session;
     }
-  },
-  cookies: {
-    sessionToken: {
-      name: `sm_session`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-  },
+  }
 });

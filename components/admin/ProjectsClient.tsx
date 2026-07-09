@@ -672,13 +672,17 @@ export default function ProjectsClient({
                     );
                   })}
                   {rows.length === 0 && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center py-20 space-y-3">
-                      <FolderDot className="w-12 h-12 text-stone/40" />
-                      <div className="text-center">
-                        <h4 className="text-[13px] font-bold text-warm-white">No projects found</h4>
-                        <p className="text-[11px] text-stone">Try tweaking your search term or category filters.</p>
-                      </div>
-                    </div>
+                    <tr>
+                      <td colSpan={columns.length} className="h-[300px]">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center py-20 space-y-3">
+                          <FolderDot className="w-12 h-12 text-stone/40" />
+                          <div className="text-center">
+                            <h4 className="text-[13px] font-bold text-warm-white">No projects found</h4>
+                            <p className="text-[11px] text-stone">Try tweaking your search term or category filters.</p>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
