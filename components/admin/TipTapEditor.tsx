@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-// @ts-ignore
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
+import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { 
   Bold, 
@@ -28,6 +27,7 @@ interface TipTapEditorProps {
 export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashQuery, setSlashQuery] = useState('');
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -68,6 +68,46 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
       editor.commands.setContent(content);
     }
   }, [content, editor]);
+
+  // Listen to selection changes to position floating bubble menu
+  useEffect(() => {
+    if (!editor) return;
+
+    const updateMenu = () => {
+      const { from, to } = editor.state.selection;
+      if (from === to) {
+        setMenuPosition(null);
+        return;
+      }
+
+      const { view } = editor;
+      try {
+        const startCoords = view.coordsAtPos(from);
+        const editorRect = view.dom.getBoundingClientRect();
+        
+        setMenuPosition({
+          top: startCoords.top - editorRect.top - 10,
+          left: startCoords.left - editorRect.left + ((view.coordsAtPos(to).left - startCoords.left) / 2),
+        });
+      } catch (e) {
+        setMenuPosition(null);
+      }
+    };
+
+    editor.on('selectionUpdate', updateMenu);
+
+    const handleBlur = () => {
+      setTimeout(() => {
+        if (!editor.isFocused) setMenuPosition(null);
+      }, 150);
+    };
+    editor.on('blur', handleBlur);
+
+    return () => {
+      editor.off('selectionUpdate', updateMenu);
+      editor.off('blur', handleBlur);
+    };
+  }, [editor]);
 
   if (!editor) return null;
 
@@ -183,36 +223,40 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
         </Button>
       </div>
 
-      {/* Floating Inline Bubble Menu */}
-      {editor && (
-        <BubbleMenu 
-          editor={editor} 
-          tippyOptions={{ duration: 100 }}
-          className="flex items-center gap-1 bg-onyx border border-white/10 p-1 rounded-xl shadow-premium backdrop-blur-md"
-        >
-          <button 
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            className={`p-1.5 rounded hover:bg-white/5 text-[11px] font-bold ${editor.isActive('bold') ? 'text-accent-cyan' : 'text-stone'}`}
-          >
-            Bold
-          </button>
-          <button 
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            className={`p-1.5 rounded hover:bg-white/5 text-[11px] italic ${editor.isActive('italic') ? 'text-accent-cyan' : 'text-stone'}`}
-          >
-            Italic
-          </button>
-          <button 
-            onClick={() => editor.chain().focus().toggleCode().run()}
-            className={`p-1.5 rounded hover:bg-white/5 text-[11px] font-mono ${editor.isActive('code') ? 'text-accent-cyan' : 'text-stone'}`}
-          >
-            Code
-          </button>
-        </BubbleMenu>
-      )}
-
       {/* Editor Content Area */}
       <div className="relative flex-1 py-2">
+        {editor && menuPosition && (
+          <div 
+            className="absolute z-40 flex items-center gap-1 bg-onyx border border-white/10 p-1.5 rounded-xl shadow-premium backdrop-blur-md"
+            style={{
+              top: `${menuPosition.top}px`,
+              left: `${menuPosition.left}px`,
+              transform: 'translate(-50%, -100%)'
+            }}
+          >
+            <button 
+              type="button"
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              className={`p-1.5 rounded hover:bg-white/5 text-[11px] font-bold cursor-pointer transition-colors ${editor.isActive('bold') ? 'text-accent-cyan' : 'text-stone'}`}
+            >
+              Bold
+            </button>
+            <button 
+              type="button"
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              className={`p-1.5 rounded hover:bg-white/5 text-[11px] italic cursor-pointer transition-colors ${editor.isActive('italic') ? 'text-accent-cyan' : 'text-stone'}`}
+            >
+              Italic
+            </button>
+            <button 
+              type="button"
+              onClick={() => editor.chain().focus().toggleCode().run()}
+              className={`p-1.5 rounded hover:bg-white/5 text-[11px] font-mono cursor-pointer transition-colors ${editor.isActive('code') ? 'text-accent-cyan' : 'text-stone'}`}
+            >
+              Code
+            </button>
+          </div>
+        )}
         <EditorContent editor={editor} />
 
         {/* Notion Slash Command Menu Dialog */}
