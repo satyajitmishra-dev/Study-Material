@@ -77,13 +77,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user }) {
       if (!user.email) return false;
 
+      const adminEmails = (process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map(e => e.trim().toLowerCase());
+      const isDefaultAdmin = adminEmails.includes(user.email.toLowerCase());
+
       const existingUser = await db.getUserByEmail(user.email);
       if (!existingUser) {
-        const adminEmails = (process.env.ADMIN_EMAILS || '')
-          .split(',')
-          .map(e => e.trim().toLowerCase());
-        const isDefaultAdmin = adminEmails.includes(user.email.toLowerCase());
-
         await db.createUser({
           id: user.id || `u_${Date.now()}`,
           name: user.name || '',
@@ -94,27 +94,42 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: isDefaultAdmin ? 'admin' : 'user',
           status: 'active',
         });
-      } else if (existingUser.status === 'disabled') {
-        return false;
+      } else {
+        if (existingUser.status === 'disabled') {
+          return false;
+        }
+        // Self-healing role upgrade: dynamically upgrade to admin if listed in ADMIN_EMAILS
+        if (isDefaultAdmin && existingUser.role !== 'admin') {
+          await db.updateUserRole(existingUser.id, 'admin');
+        }
       }
       return true;
     },
     async jwt({ token, user }) {
-      if (user) {
-        token.uid = user.id;
+      if (user && user.email) {
+        const dbUser = await db.getUserByEmail(user.email);
+        if (dbUser) {
+          token.uid = dbUser.id;
+          token.role = dbUser.role;
+          token.status = dbUser.status;
+          token.avatar = dbUser.avatar;
+        }
+      } else if (token.uid && !token.role) {
+        const dbUser = await db.getUserById(token.uid as string);
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.status = dbUser.status;
+          token.avatar = dbUser.avatar;
+        }
       }
       return token;
     },
     async session({ session, token }: any) {
       if (token.uid) {
-        // Fetch role and status from database dynamically (Never stored in cookies)
-        const dbUser = await db.getUserById(token.uid as string);
-        if (dbUser) {
-          session.user.id = dbUser.id;
-          session.user.role = dbUser.role;
-          session.user.status = dbUser.status;
-          session.user.avatar = dbUser.avatar;
-        }
+        session.user.id = token.uid;
+        session.user.role = token.role || 'user';
+        session.user.status = token.status || 'active';
+        session.user.avatar = token.avatar || null;
       }
       return session;
     }
