@@ -1,6 +1,7 @@
 'use server';
 
 import { auth } from '@/auth';
+import { getPrisma } from '@/lib/database/dbClient';
 import { cmsDb, CmsProject, CmsVersion, CmsMedia, CmsAnalytics } from '@/lib/database/cmsDb';
 import { CmsProjectSchema, CmsMediaSchema } from '@/lib/validation/cms';
 import { rateLimit } from '@/lib/security/rateLimit';
@@ -62,6 +63,31 @@ export async function saveProjectAction(
       return { success: false, error: 'DUPLICATE_SLUG' };
     }
 
+    const prisma = getPrisma();
+
+    // Check optimistic concurrency lock
+    if (projectId) {
+      const original = await cmsDb.getProjectById(projectId);
+      if (!original) {
+        return { success: false, error: 'PROJECT_NOT_FOUND' };
+      }
+      if (typeof inputData.version === 'number' && original.version !== inputData.version) {
+        return { success: false, error: 'CONCURRENT_EDIT_CONFLICT' };
+      }
+    }
+
+    // Auto-link Category
+    let categoryId = inputData.categoryId;
+    if (!categoryId && inputData.category && prisma) {
+      const catSlug = inputData.category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const cat = await prisma.category.upsert({
+        where: { slug: catSlug },
+        update: {},
+        create: { name: inputData.category, slug: catSlug }
+      });
+      categoryId = cat.id;
+    }
+
     let project: CmsProject;
 
     if (projectId) {
@@ -75,14 +101,14 @@ export async function saveProjectAction(
         return { success: false, error: 'FORBIDDEN' };
       }
 
-      // Enforce status checks: only admins/editors can publish directly
+      // Enforce status checks: only admins/editors can publish/approve directly
       let targetStatus = inputData.status;
       let publishedAt = original.publishedAt;
 
       if (targetStatus === 'published' && original.status !== 'published') {
         if (actor.role === 'author') {
-          // Authors can only schedule or request draft reviews
-          targetStatus = 'draft';
+          // Authors can only request review
+          targetStatus = 'review';
         } else {
           publishedAt = new Date();
         }
@@ -96,6 +122,7 @@ export async function saveProjectAction(
         tags: inputData.tags,
         language: inputData.language,
         visibility: inputData.visibility,
+        password: inputData.password,
         thumbnail: inputData.thumbnail,
         coverImage: inputData.coverImage,
         content: inputData.content,
@@ -111,6 +138,12 @@ export async function saveProjectAction(
         scheduledAt: inputData.scheduledAt ? new Date(inputData.scheduledAt) : null,
         publishedAt,
         versionNote: inputData.versionNote,
+        version: (original.version || 0) + 1,
+        parentId: inputData.parentId,
+        nextProjectId: inputData.nextProjectId,
+        prevProjectId: inputData.prevProjectId,
+        prerequisiteId: inputData.prerequisiteId,
+        categoryId: categoryId,
       });
 
       // Create snapshot version history
@@ -146,6 +179,7 @@ export async function saveProjectAction(
         tags: inputData.tags,
         language: inputData.language,
         visibility: inputData.visibility,
+        password: inputData.password ?? null,
         thumbnail: inputData.thumbnail ?? null,
         coverImage: inputData.coverImage ?? null,
         content: inputData.content,
@@ -163,6 +197,12 @@ export async function saveProjectAction(
         versionNote: inputData.versionNote ?? null,
         createdAt: now,
         authorId: actor.userId,
+        version: 1,
+        parentId: inputData.parentId ?? null,
+        nextProjectId: inputData.nextProjectId ?? null,
+        prevProjectId: inputData.prevProjectId ?? null,
+        prerequisiteId: inputData.prerequisiteId ?? null,
+        categoryId: categoryId ?? null,
       });
 
       // Create initial snapshot
@@ -187,8 +227,29 @@ export async function saveProjectAction(
       });
     }
 
+    // Dynamic Tag sync
+    if (prisma) {
+      await prisma.postTag.deleteMany({ where: { projectId: project.id } });
+      for (const tagItem of inputData.tags) {
+        const tagSlug = tagItem.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const tag = await prisma.tag.upsert({
+          where: { slug: tagSlug },
+          update: {},
+          create: { name: tagItem, slug: tagSlug }
+        });
+        await prisma.postTag.create({
+          data: {
+            projectId: project.id,
+            tagId: tag.id
+          }
+        });
+      }
+    }
+
     revalidatePath('/admin/projects');
     revalidatePath('/admin');
+    revalidatePath('/');
+    revalidatePath('/posts');
     return { success: true, project };
 
   } catch (err: any) {
@@ -346,6 +407,7 @@ export async function logAnalyticsAction(projectId: string, visitorId: string, r
     const log = await cmsDb.logAnalytics({
       projectId,
       visitorId,
+      userId: null,
       userAgent: 'web',
       country: country || 'US',
       referer: referer || 'direct',
@@ -353,6 +415,7 @@ export async function logAnalyticsAction(projectId: string, visitorId: string, r
       ctr: 0.05,
       bounceRate: 0.20,
       timeOnPage: 45,
+      scrollDepth: 0,
     });
 
     return { success: true, log };

@@ -7,7 +7,8 @@ export const CmsProjectSchema = z.object({
   category: z.string().min(1, 'Category is required').optional().nullable(),
   tags: z.array(z.string()),
   language: z.string(),
-  visibility: z.enum(['public', 'private', 'members']),
+  visibility: z.enum(['public', 'private', 'unlisted', 'password', 'members', 'premium']),
+  password: z.string().optional().nullable(),
   thumbnail: z.string().or(z.literal('')).optional().nullable(),
   coverImage: z.string().or(z.literal('')).optional().nullable(),
   content: z.string(),
@@ -19,9 +20,15 @@ export const CmsProjectSchema = z.object({
   robots: z.string().optional().nullable(),
   schemaJson: z.string().optional().nullable(),
   seoScore: z.number().int().min(0).max(100),
-  status: z.enum(['draft', 'published', 'scheduled', 'archived']),
+  status: z.enum(['draft', 'review', 'approved', 'scheduled', 'published', 'archived']),
   scheduledAt: z.string().optional().nullable(),
   versionNote: z.string().max(200, 'Version note is too long').optional().nullable(),
+  version: z.number().int().optional(),
+  parentId: z.string().optional().nullable(),
+  nextProjectId: z.string().optional().nullable(),
+  prevProjectId: z.string().optional().nullable(),
+  prerequisiteId: z.string().optional().nullable(),
+  categoryId: z.string().optional().nullable(),
 });
 
 export type CmsProjectInput = z.infer<typeof CmsProjectSchema>;

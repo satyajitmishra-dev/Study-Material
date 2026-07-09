@@ -49,6 +49,13 @@ async function runTestSuite() {
       versionNote: 'Test creation entry',
       authorId: 'test-author',
       createdAt: new Date(),
+      version: 1,
+      parentId: null,
+      nextProjectId: null,
+      prevProjectId: null,
+      prerequisiteId: null,
+      categoryId: null,
+      password: null,
     });
 
     assert(!!newProject.id, 'Database created project and generated unique ID');

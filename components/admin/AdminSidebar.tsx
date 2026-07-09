@@ -16,7 +16,8 @@ import {
   ChevronRight,
   LogOut,
   Sparkles,
-  Calendar
+  Calendar,
+  MessageSquare
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -29,10 +30,12 @@ interface SidebarItem {
 const SIDEBAR_ITEMS: SidebarItem[] = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Projects', href: '/admin/projects', icon: FolderGit },
+  { name: 'Content Automation', href: '/admin/automation', icon: Sparkles },
   { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
   { name: 'Media Library', href: '/admin/media', icon: Image },
   { name: 'SEO Studio', href: '/admin/seo', icon: Globe },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart },
+  { name: 'Engagement Hub', href: '/admin/engagement', icon: MessageSquare },
   { name: 'System Health', href: '/admin/system', icon: Activity },
 ];
 

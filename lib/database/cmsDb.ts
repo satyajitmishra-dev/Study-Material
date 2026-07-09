@@ -76,6 +76,13 @@ const seedSandboxDb = () => {
     createdAt: now,
     updatedAt: now,
     authorId: adminId,
+    version: 1,
+    parentId: null,
+    nextProjectId: null,
+    prevProjectId: null,
+    prerequisiteId: null,
+    categoryId: 'cat_react',
+    password: null,
   };
 
   const proj2: CmsProject = {
@@ -112,6 +119,13 @@ const seedSandboxDb = () => {
     createdAt: now,
     updatedAt: now,
     authorId: adminId,
+    version: 1,
+    parentId: null,
+    nextProjectId: null,
+    prevProjectId: null,
+    prerequisiteId: null,
+    categoryId: 'cat_css',
+    password: null,
   };
 
   inMemoryProjects.push(proj1, proj2);
@@ -162,6 +176,7 @@ const seedSandboxDb = () => {
       id: `an_sandbox_${i}`,
       projectId: 'proj_sandbox_1',
       visitorId: `visitor_${i}`,
+      userId: null,
       userAgent: 'Mozilla/5.0',
       country: i % 2 === 0 ? 'US' : 'DE',
       referer: 'google.com',
@@ -169,6 +184,7 @@ const seedSandboxDb = () => {
       ctr: 0.04 + i * 0.01,
       bounceRate: 0.35 - i * 0.02,
       timeOnPage: 180 + i * 20,
+      scrollDepth: 75,
       createdAt: logDate,
     });
   }
