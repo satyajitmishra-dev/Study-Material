@@ -114,7 +114,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.status = dbUser.status;
           token.avatar = dbUser.avatar;
         }
-      } else if (token.uid && !token.role) {
+      } else if (token.uid) {
         const dbUser = await db.getUserById(token.uid as string);
         if (dbUser) {
           token.role = dbUser.role;
