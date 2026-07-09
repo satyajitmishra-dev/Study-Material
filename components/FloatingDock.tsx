@@ -92,7 +92,7 @@ interface FloatingDockProps {
 export default function FloatingDock({ onSearchClick }: FloatingDockProps) {
   const mouseX = useMotionValue(Infinity);
   const { data: session } = useSession();
-  const isAdmin = (session?.user as any)?.role === 'admin';
+  const isCmsUser = ['admin', 'editor', 'author'].includes((session?.user as any)?.role);
 
   const workspaces = [
     { title: 'Home Dashboard', icon: Home, href: '/' },
@@ -101,7 +101,7 @@ export default function FloatingDock({ onSearchClick }: FloatingDockProps) {
     { title: 'Search Palette (Ctrl+K)', icon: Search, href: '#', onClick: onSearchClick },
   ];
 
-  if (isAdmin) {
+  if (isCmsUser) {
     workspaces.push(
       { title: 'Publishing Studio', icon: Terminal, href: '/admin' },
       { title: 'SEO Studio', icon: Globe2, href: '/admin/seo' },

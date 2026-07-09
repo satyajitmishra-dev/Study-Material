@@ -6,7 +6,7 @@ import { Pool } from 'pg';
 // Singleton Prisma Client
 let globalPrisma: PrismaClient | undefined;
 
-const getPrisma = (): PrismaClient | null => {
+export const getPrisma = (): PrismaClient | null => {
   if (typeof window !== 'undefined') return null;
   if (!process.env.DATABASE_URL) return null;
   
