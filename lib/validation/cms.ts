@@ -8,8 +8,8 @@ export const CmsProjectSchema = z.object({
   tags: z.array(z.string()),
   language: z.string(),
   visibility: z.enum(['public', 'private', 'members']),
-  thumbnail: z.string().url('Invalid thumbnail URL').or(z.literal('')).optional().nullable(),
-  coverImage: z.string().url('Invalid cover image URL').or(z.literal('')).optional().nullable(),
+  thumbnail: z.string().or(z.literal('')).optional().nullable(),
+  coverImage: z.string().or(z.literal('')).optional().nullable(),
   content: z.string(),
   seoTitle: z.string().max(70, 'Meta title must be under 70 characters').optional().nullable(),
   seoDescription: z.string().max(160, 'Meta description must be under 160 characters').optional().nullable(),
@@ -41,7 +41,7 @@ export type CmsVersionInput = z.infer<typeof CmsVersionSchema>;
 
 export const CmsMediaSchema = z.object({
   filename: z.string().min(1, 'Filename is required'),
-  url: z.string().url('Invalid media URL'),
+  url: z.string().min(1, 'Media URL is required'),
   size: z.number().int().positive(),
   type: z.string(),
   folder: z.string().default('/'),

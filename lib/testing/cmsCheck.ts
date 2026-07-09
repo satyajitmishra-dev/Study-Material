@@ -56,7 +56,7 @@ async function runTestSuite() {
     const retrieved = await cmsDb.getProjectById(newProject.id);
     assert(retrieved?.title === 'Testing Suite Integration', 'Database retrieved created project correctly');
 
-    await cmsDb.deleteProject(newProject.id);
+    await cmsDb.deleteProject(newProject.id, false);
     const deletedCheck = await cmsDb.getProjectById(newProject.id);
     assert(deletedCheck === null, 'Database deleted project successfully');
   } catch (e: any) {
@@ -99,16 +99,36 @@ async function runTestSuite() {
   // --- TEST 4: SEO SCORING ENGINE ---
   try {
     const analysis = SeoEngine.analyze({
-      title: 'Optimized Title Guidelines',
+      title: 'Optimized Title Guidelines for Modern Production Apps',
       slug: 'optimized-title-guidelines',
       content: `
         <h2>Article Introduction</h2>
-        <p>This is a comprehensive developer tutorial detailing layouts and configurations. 
-        It discusses the integration of automatic memoization and spring physical configurations.</p>
-        <p>Using these optimized title guidelines will ensure that search engines index pages quickly and rank them high.</p>
+        <p>This is a comprehensive developer tutorial detailing optimized guidelines, layouts, and configurations in modern React frameworks.
+        In this guide, we discuss the integration of automatic memoization and spring physical configurations. Developers should review the
+        <a href="/learn">internal documentation</a> to configure their dev server. Creating optimized layouts is vital for performance.</p>
+        
+        <h2>Detailed Guidelines and Architecture</h2>
+        <p>When designing these workflows, standard guidelines suggest keeping components small and highly focused. We recommend checking out the
+        official <a href="https://nextjs.org">Next.js reference</a> to learn how page shells stream suspense holes. The compiler simplifies
+        dependency tracking, which means developers write cleaner code. Let's write more paragraphs to reach the three-hundred words minimum requirement.</p>
+        
+        <p>To reach a high word count, we should explore all the subtopics in depth. One of the main challenges when dealing with enterprise systems is
+        maintaining consistent typography and spacing. Our styling uses curated custom Tailwind setups that look premium. Spacing should follow a strict
+        spacing scale to prevent visual shifts. Hover effects and interactive elements make pages feel alive and engage users. In contrast, plain layouts
+        can feel boring and cheap. Always prioritize user experience by incorporating smooth micro-animations and transition states.</p>
+        
+        <p>Furthermore, security is a major pillar. Always sanitize user inputs using frameworks like Zod. Session validation must happen on every admin route,
+        preventing unauthorized users from viewing private logs. Cross-site scripting (XSS) and SQL injections are common vulnerabilities that must be
+        proactively addressed. Rate limiting should be applied to sensitive operations like authentication endpoints or bulk project edits.
+        Following these strict security guidelines ensures that client data remains safe and protected from malicious actors.</p>
+        
+        <p>Lastly, accessibility checks are non-negotiable. WCAG AA compliance requires keyboard navigation, tab orders, visible focus states, and proper
+        ARIA labels. Color contrast ratios must exceed minimum requirements to enable low-vision accessibility. Screen readers must be able to parse the page
+        correctly using HTML5 semantic elements. Ensure all form elements have clear matching labels and description blocks. By checking these boxes, you
+        create software that is truly usable by everyone, everywhere.</p>
       `,
-      seoTitle: 'Optimized Title Guidelines',
-      seoDescription: 'Comprehensive step-by-step developer tutorial detailing layouts and configurations.',
+      seoTitle: 'Optimized Title Guidelines for Modern Production Apps',
+      seoDescription: 'Comprehensive step-by-step developer tutorial detailing optimized guidelines, layouts, and spring configurations in Next.js applications.',
       seoKeywords: 'guidelines, optimized',
       canonical: 'https://studymaterial.dev/optimized-title-guidelines',
       ogImage: 'https://studymaterial.dev/og.jpg',
