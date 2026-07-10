@@ -17,9 +17,12 @@ import {
   LogOut,
   Sparkles,
   Calendar,
-  MessageSquare
+  MessageSquare,
+  Settings,
+  Terminal
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import ProjectSwitcher from './ProjectSwitcher';
 
 interface SidebarItem {
   name: string;
@@ -36,12 +39,30 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { name: 'SEO Studio', href: '/admin/seo', icon: Globe },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart },
   { name: 'Engagement Hub', href: '/admin/engagement', icon: MessageSquare },
-  { name: 'System Health', href: '/admin/system', icon: Activity },
+  { name: 'Operations Panel', href: '/admin/operations', icon: Terminal },
+  { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
-export default function AdminSidebar() {
+interface AdminSidebarProps {
+  activeProject?: {
+    projectId: string;
+    projectName: string;
+    projectSlug: string;
+    organizationName: string;
+  };
+}
+
+export default function AdminSidebar({ activeProject }: AdminSidebarProps) {
   const [collapsed, setCollapsed] = React.useState(false);
   const pathname = usePathname();
+
+  // Mock active project if none provided (sandbox dev mode)
+  const resolvedActiveProject = activeProject || {
+    projectId: 'proj_sandbox_1',
+    projectName: 'Study Materials',
+    projectSlug: 'study-materials',
+    organizationName: 'Sandbox Org'
+  };
 
   return (
     <>
@@ -51,30 +72,26 @@ export default function AdminSidebar() {
       className="hidden md:flex relative z-30 h-[calc(100vh-2rem)] rounded-2xl bg-charcoal/30 border border-white/5 backdrop-blur-md flex-col justify-between py-6 px-3 shadow-premium transition-all select-none shrink-0"
     >
       <div className="space-y-6">
-        {/* Sidebar Header */}
-        <div className="flex items-center justify-between px-3 h-8">
-          {!collapsed && (
-            <motion.div 
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-2"
+        {/* Sidebar Header with Switcher */}
+        <div className="flex items-center gap-1.5 justify-between px-1 h-12">
+          {!collapsed ? (
+            <div className="flex-1 min-w-0">
+              <ProjectSwitcher activeProject={resolvedActiveProject} />
+            </div>
+          ) : (
+            <div 
+              onClick={() => setCollapsed(false)}
+              className="w-7 h-7 mx-auto rounded-lg bg-gradient-to-tr from-accent-violet to-accent-cyan flex items-center justify-center text-[11px] font-extrabold text-white cursor-pointer shadow-glow-violet/5 hover:scale-105 active:scale-95 transition-all shrink-0"
             >
-              <div className="w-5 h-5 rounded bg-accent-violet flex items-center justify-center text-[10px] font-extrabold text-white">
-                C
-              </div>
-              <span className="text-[14px] font-bold text-warm-white tracking-tight">Studio CMS</span>
-            </motion.div>
-          )}
-
-          {collapsed && (
-            <div className="w-6 h-6 mx-auto rounded bg-accent-violet flex items-center justify-center text-[10px] font-extrabold text-white">
-              C
+              {resolvedActiveProject.projectName.charAt(0).toUpperCase()}
             </div>
           )}
 
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="w-6 h-6 rounded-md hover:bg-white/5 border border-transparent hover:border-white/5 flex items-center justify-center text-stone hover:text-warm-white cursor-pointer transition-all"
+            className={`w-6 h-6 rounded-md hover:bg-white/5 border border-transparent hover:border-white/5 flex items-center justify-center text-stone hover:text-warm-white cursor-pointer transition-all shrink-0
+              ${collapsed ? 'mx-auto' : ''}
+            `}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}

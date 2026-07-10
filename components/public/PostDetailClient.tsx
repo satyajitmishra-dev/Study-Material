@@ -21,7 +21,8 @@ import {
   Trash2,
   Edit2,
   Check,
-  Play
+  Play,
+  ChevronDown
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -382,7 +383,7 @@ export default function PostDetailClient({
           </div>
           <div className="flex items-center gap-1.5">
             <Calendar className="w-4 h-4" />
-            <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
+            <span suppressHydrationWarning>{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ''}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <BookOpen className="w-4 h-4" />
@@ -404,18 +405,33 @@ export default function PostDetailClient({
         <div className="lg:col-span-3 lg:sticky lg:top-16 space-y-4">
           <h4 className="text-[11px] font-semibold text-stone uppercase tracking-wider font-mono">Table of Contents</h4>
           <ul className="space-y-3 text-[12px] text-stone">
-            <li className="hover:text-accent-cyan transition-colors cursor-pointer border-l-2 border-accent-cyan/40 pl-3">
-              1. Overview
-            </li>
-            <li className="hover:text-accent-cyan transition-colors cursor-pointer border-l-2 border-transparent pl-3">
-              2. Design Guidelines
-            </li>
-            <li className="hover:text-accent-cyan transition-colors cursor-pointer border-l-2 border-transparent pl-3">
-              3. Setup Configurations
-            </li>
-            <li className="hover:text-accent-cyan transition-colors cursor-pointer border-l-2 border-transparent pl-3">
-              4. Verification Mechanics
-            </li>
+            {post.toc && post.toc.length > 0 ? (
+              post.toc.map((item: any, idx: number) => (
+                <li 
+                  key={idx} 
+                  className={`hover:text-accent-cyan transition-colors cursor-pointer border-l-2 pl-3 truncate
+                    ${item.level === 3 ? 'ml-3 border-transparent' : 'border-accent-cyan/40'}
+                  `}
+                >
+                  <a href={`#${item.id}`}>{idx + 1}. {item.text}</a>
+                </li>
+              ))
+            ) : (
+              <>
+                <li className="hover:text-accent-cyan transition-colors cursor-pointer border-l-2 border-accent-cyan/40 pl-3">
+                  1. Overview
+                </li>
+                <li className="hover:text-accent-cyan transition-colors cursor-pointer border-l-2 border-transparent pl-3">
+                  2. Design Guidelines
+                </li>
+                <li className="hover:text-accent-cyan transition-colors cursor-pointer border-l-2 border-transparent pl-3">
+                  3. Setup Configurations
+                </li>
+                <li className="hover:text-accent-cyan transition-colors cursor-pointer border-l-2 border-transparent pl-3">
+                  4. Verification Mechanics
+                </li>
+              </>
+            )}
           </ul>
 
           {/* Post Series link if any */}
@@ -434,46 +450,80 @@ export default function PostDetailClient({
         <div className="lg:col-span-9 space-y-12">
           {/* Post Rich Content */}
           <article className="prose prose-invert max-w-none text-[15px] text-fog/90 leading-relaxed font-light space-y-6 select-text">
-            {/* Direct fallback render of sample text, or parse MDX blocks */}
-            <p>
-              Partial Prerendering (PPR) is a layout-first prerendering model that allows streaming dynamic content holes inside static route shells. 
-              Wrap dynamic components in React 19's <code>&lt;Suspense&gt;</code> and Next.js does the rest under the hood! 
-              By splitting the page compilation during build time, we avoid database hits for static headers, menus, or sidebars while enabling streaming layouts.
-            </p>
+            {post.content ? (
+              <div 
+                className="space-y-6"
+                dangerouslySetInnerHTML={{ __html: post.content }} 
+              />
+            ) : (
+              <>
+                <p>
+                  Partial Prerendering (PPR) is a layout-first prerendering model that allows streaming dynamic content holes inside static route shells. 
+                  Wrap dynamic components in React 19's <code>&lt;Suspense&gt;</code> and Next.js does the rest under the hood! 
+                  By splitting the page compilation during build time, we avoid database hits for static headers, menus, or sidebars while enabling streaming layouts.
+                </p>
 
-            <div className="p-4 bg-charcoal/20 border-l-4 border-accent-cyan rounded-r-xl text-[13px] text-stone leading-relaxed font-mono">
-              💡 **Callout Overview**: Using PPR eliminates the classic TTFB latency trade-off between static generation and server-side queries.
-            </div>
+                <div className="p-4 bg-charcoal/20 border-l-4 border-accent-cyan rounded-r-xl text-[13px] text-stone leading-relaxed font-mono">
+                  💡 **Callout Overview**: Using PPR eliminates the classic TTFB latency trade-off between static generation and server-side queries.
+                </div>
 
-            <h3 className="text-xl font-bold text-warm-white font-mono mt-8">Dynamic Streaming Code Setup</h3>
-            
-            {/* Syntax highlight code block */}
-            <Card className="bg-charcoal/30 border-white/5 p-4 font-mono text-[12px] space-y-1 overflow-x-auto relative group">
-              <button 
-                onClick={copyLinkToClipboard}
-                className="absolute top-3 right-3 text-stone hover:text-warm-white bg-white/5 border border-white/5 px-2 py-0.5 rounded text-[10px] cursor-pointer"
-              >
-                Copy
-              </button>
-              <div className="text-accent-cyan">import &#123; Suspense &#125; from 'react';</div>
-              <div className="text-accent-cyan">import &#123; DynamicComponent &#125; from './widgets';</div>
-              <br />
-              <div>export default function ShellPage() &#123;</div>
-              <div className="pl-4">return (</div>
-              <div className="pl-8 text-graphite">&lt;div className="layout-shell"&gt;</div>
-              <div className="pl-12 text-accent-amber">&lt;Suspense fallback=&#123;&lt;ShellSkeleton /&gt;&#125;&gt;</div>
-              <div className="pl-16 text-warm-white">&lt;DynamicComponent /&gt;</div>
-              <div className="pl-12 text-accent-amber">&lt;/Suspense&gt;</div>
-              <div className="pl-8 text-graphite">&lt;/div&gt;</div>
-              <div className="pl-4">);</div>
-              <div>&#125;</div>
-            </Card>
+                <h3 className="text-xl font-bold text-warm-white font-mono mt-8">Dynamic Streaming Code Setup</h3>
+                
+                {/* Syntax highlight code block */}
+                <Card className="bg-charcoal/30 border-white/5 p-4 font-mono text-[12px] space-y-1 overflow-x-auto relative group">
+                  <button 
+                    onClick={copyLinkToClipboard}
+                    className="absolute top-3 right-3 text-stone hover:text-warm-white bg-white/5 border border-white/5 px-2 py-0.5 rounded text-[10px] cursor-pointer"
+                  >
+                    Copy
+                  </button>
+                  <div className="text-accent-cyan">import &#123; Suspense &#125; from 'react';</div>
+                  <div className="text-accent-cyan">import &#123; DynamicComponent &#125; from './widgets';</div>
+                  <br />
+                  <div>export default function ShellPage() &#123;</div>
+                  <div className="pl-4">return (</div>
+                  <div className="pl-8 text-graphite">&lt;div className="layout-shell"&gt;</div>
+                  <div className="pl-12 text-accent-amber">&lt;Suspense fallback=&#123;&lt;ShellSkeleton /&gt;&#125;&gt;</div>
+                  <div className="pl-16 text-warm-white">&lt;DynamicComponent /&gt;</div>
+                  <div className="pl-12 text-accent-amber">&lt;/Suspense&gt;</div>
+                  <div className="pl-8 text-graphite">&lt;/div&gt;</div>
+                  <div className="pl-4">);</div>
+                  <div>&#125;</div>
+                </Card>
 
-            <p>
-              When a user loads this route, the static shell is returned immediately. Once the dynamic data queries in the backend database complete, 
-              the suspense holes are streamed and hydated in the client browser transparently.
-            </p>
+                <p>
+                  When a user loads this route, the static shell is returned immediately. Once the dynamic data queries in the backend database complete, 
+                  the suspense holes are streamed and hydrated in the client browser transparently.
+                </p>
+              </>
+            )}
           </article>
+
+          {/* Next / Prev Article Navigation */}
+          {(post.prevProject || post.nextProject) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-white/5">
+              {post.prevProject ? (
+                <Link href={`/posts/${post.prevProject.slug}`}>
+                  <Card className="p-4 hover:border-white/10 group cursor-pointer flex flex-col justify-between h-20 text-left">
+                    <span className="text-[9px] font-mono text-stone uppercase">← Previous Article</span>
+                    <span className="text-[12px] font-bold text-warm-white group-hover:text-accent-cyan transition-colors truncate">{post.prevProject.title}</span>
+                  </Card>
+                </Link>
+              ) : (
+                <div />
+              )}
+              {post.nextProject ? (
+                <Link href={`/posts/${post.nextProject.slug}`}>
+                  <Card className="p-4 hover:border-white/10 group cursor-pointer flex flex-col justify-between h-20 text-right">
+                    <span className="text-[9px] font-mono text-stone uppercase">Next Article →</span>
+                    <span className="text-[12px] font-bold text-warm-white group-hover:text-accent-cyan transition-colors truncate">{post.nextProject.title}</span>
+                  </Card>
+                </Link>
+              ) : (
+                <div />
+              )}
+            </div>
+          )}
 
           {/* Share triggers and Copy Link */}
           <div className="flex items-center gap-3 border-t border-b border-white/5 py-4">
@@ -521,7 +571,7 @@ export default function PostDetailClient({
                 <div key={comment.id} className="p-4 rounded-xl bg-charcoal/10 border border-white/5 space-y-3">
                   <div className="flex items-center justify-between text-[11px] text-stone font-mono">
                     <span className="font-semibold text-warm-white">@{comment.user.name}</span>
-                    <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
+                    <span suppressHydrationWarning>{comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : ''}</span>
                   </div>
                   <p className="text-[13px] text-stone/90 leading-relaxed font-light">{comment.content}</p>
 
@@ -571,7 +621,7 @@ export default function PostDetailClient({
                         <div key={reply.id} className="space-y-1">
                           <div className="flex items-center justify-between text-[10px] text-stone font-mono">
                             <span className="font-semibold text-warm-white">@{reply.user.name}</span>
-                            <span>{new Date(reply.createdAt).toLocaleDateString()}</span>
+                            <span suppressHydrationWarning>{reply.createdAt ? new Date(reply.createdAt).toLocaleDateString() : ''}</span>
                           </div>
                           <p className="text-[12px] text-stone font-light leading-relaxed">{reply.content}</p>
                         </div>
@@ -582,6 +632,28 @@ export default function PostDetailClient({
               ))}
             </div>
           </div>
+
+          {/* FAQ Accordions Section */}
+          {post.faq && Array.isArray(post.faq) && post.faq.length > 0 && (
+            <div className="pt-8 border-t border-white/5 space-y-4 text-left">
+              <h4 className="text-[12px] font-semibold text-stone uppercase tracking-wider font-mono">Frequently Asked Questions</h4>
+              <div className="space-y-3">
+                {post.faq.map((item: any, idx: number) => (
+                  <details key={idx} className="group bg-charcoal/10 border border-white/5 rounded-xl p-4 cursor-pointer [&_summary::-webkit-details-marker]:hidden">
+                    <summary className="flex items-center justify-between text-[13px] font-bold text-warm-white list-none">
+                      <span>{item.question}</span>
+                      <span className="text-stone transition group-open:rotate-180">
+                        <ChevronDown className="w-4 h-4" />
+                      </span>
+                    </summary>
+                    <p className="text-[12px] text-stone mt-3 leading-relaxed font-light select-text">
+                      {item.answer}
+                    </p>
+                  </details>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Related Articles Carousel */}
           {relatedPosts && relatedPosts.length > 0 && (

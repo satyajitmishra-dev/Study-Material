@@ -3,6 +3,16 @@ import { publicDb } from '@/lib/database/publicDb';
 import { Card } from '@/components/ui/core';
 import Link from 'next/link';
 import { Layers, ChevronRight } from 'lucide-react';
+import { Metadata } from 'next';
+import { getMetadata } from '@/lib/seo/MetadataEngine';
+
+export async function generateMetadata(): Promise<Metadata> {
+  return getMetadata({
+    title: 'Categories Directory',
+    description: 'Explore structured technical guides organized by framework architectures and backend databases.',
+    path: '/categories'
+  });
+}
 
 export const dynamic = 'force-dynamic';
 

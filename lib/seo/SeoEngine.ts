@@ -421,4 +421,32 @@ export class SeoEngine {
       wordCount
     };
   }
+
+  static extractTableOfContents(htmlContent: string): Array<{ text: string; id: string; level: number }> {
+    if (!htmlContent) return [];
+    
+    const headingRegex = /<h([2-3])[^>]*>(.*?)<\/h\1>/gi;
+    const toc: Array<{ text: string; id: string; level: number }> = [];
+    
+    let match;
+    while ((match = headingRegex.exec(htmlContent)) !== null) {
+      const level = parseInt(match[1], 10);
+      const rawText = match[2].replace(/<[^>]*>/g, '').trim();
+      const id = rawText.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      toc.push({ text: rawText, id, level });
+    }
+    
+    return toc;
+  }
+
+  static injectHeadingIds(htmlContent: string): string {
+    if (!htmlContent) return htmlContent;
+    
+    return htmlContent.replace(/<h([2-3])([^>]*)>(.*?)<\/h\1>/gi, (match, level, attrs, text) => {
+      if (attrs.includes('id=')) return match;
+      const rawText = text.replace(/<[^>]*>/g, '').trim();
+      const id = rawText.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      return `<h${level}${attrs} id="${id}">${text}</h${level}>`;
+    });
+  }
 }

@@ -6,6 +6,7 @@ import { cmsDb, CmsProject, CmsVersion, CmsMedia, CmsAnalytics } from '@/lib/dat
 import { CmsProjectSchema, CmsMediaSchema } from '@/lib/validation/cms';
 import { rateLimit } from '@/lib/security/rateLimit';
 import { revalidatePath } from 'next/cache';
+import { getActiveProject } from './projectContext';
 
 // Helper to check user session, active status, and role permissions
 async function checkAuth(requiredRoles: Array<'admin' | 'editor' | 'author' | 'viewer'> = ['admin', 'editor', 'author']) {
@@ -48,6 +49,7 @@ export async function saveProjectAction(
 
   try {
     const actor = await checkAuth(['admin', 'editor', 'author']);
+    const { projectId: containerProjectId } = await getActiveProject();
 
     // Input validation & Sanitization
     const parsed = CmsProjectSchema.safeParse(rawPayload);
@@ -58,7 +60,7 @@ export async function saveProjectAction(
     const inputData = parsed.data;
 
     // Check slug uniqueness
-    const existing = await cmsDb.getProjectBySlug(inputData.slug);
+    const existing = await cmsDb.getProjectBySlug(inputData.slug, containerProjectId);
     if (existing && existing.id !== projectId) {
       return { success: false, error: 'DUPLICATE_SLUG' };
     }
@@ -67,7 +69,7 @@ export async function saveProjectAction(
 
     // Check optimistic concurrency lock
     if (projectId) {
-      const original = await cmsDb.getProjectById(projectId);
+      const original = await cmsDb.getProjectById(projectId, containerProjectId);
       if (!original) {
         return { success: false, error: 'PROJECT_NOT_FOUND' };
       }
@@ -83,7 +85,7 @@ export async function saveProjectAction(
       const cat = await prisma.category.upsert({
         where: { slug: catSlug },
         update: {},
-        create: { name: inputData.category, slug: catSlug }
+        create: { name: inputData.category, slug: catSlug, projectId: containerProjectId }
       });
       categoryId = cat.id;
     }
@@ -92,7 +94,7 @@ export async function saveProjectAction(
 
     if (projectId) {
       // Edit mode permission check: authors can only edit their own work
-      const original = await cmsDb.getProjectById(projectId);
+      const original = await cmsDb.getProjectById(projectId, containerProjectId);
       if (!original) {
         return { success: false, error: 'PROJECT_NOT_FOUND' };
       }
@@ -165,6 +167,7 @@ export async function saveProjectAction(
         targetType: 'CmsProject',
         targetId: project.id,
         details: JSON.stringify({ title: project.title, status: project.status, revision: inputData.versionNote }),
+        projectId: containerProjectId,
       });
 
     } else {
@@ -203,6 +206,7 @@ export async function saveProjectAction(
         prevProjectId: inputData.prevProjectId ?? null,
         prerequisiteId: inputData.prerequisiteId ?? null,
         categoryId: categoryId ?? null,
+        projectId: containerProjectId,
       });
 
       // Create initial snapshot
@@ -224,6 +228,7 @@ export async function saveProjectAction(
         targetType: 'CmsProject',
         targetId: project.id,
         details: JSON.stringify({ title: project.title }),
+        projectId: containerProjectId,
       });
     }
 
@@ -235,7 +240,7 @@ export async function saveProjectAction(
         const tag = await prisma.tag.upsert({
           where: { slug: tagSlug },
           update: {},
-          create: { name: tagItem, slug: tagSlug }
+          create: { name: tagItem, slug: tagSlug, projectId: containerProjectId }
         });
         await prisma.postTag.create({
           data: {
@@ -261,8 +266,9 @@ export async function saveProjectAction(
 export async function deleteProjectAction(projectId: string, softDelete: boolean = true) {
   try {
     const actor = await checkAuth(['admin', 'editor']);
+    const { projectId: containerProjectId } = await getActiveProject();
 
-    const original = await cmsDb.getProjectById(projectId);
+    const original = await cmsDb.getProjectById(projectId, containerProjectId);
     if (!original) {
       return { success: false, error: 'PROJECT_NOT_FOUND' };
     }
@@ -279,6 +285,7 @@ export async function deleteProjectAction(projectId: string, softDelete: boolean
       targetType: 'CmsProject',
       targetId: projectId,
       details: JSON.stringify({ title: original.title, type: isSoft ? 'soft' : 'hard' }),
+      projectId: containerProjectId,
     });
 
     revalidatePath('/admin/projects');
@@ -346,13 +353,17 @@ export async function rollbackVersionAction(versionId: string) {
 export async function uploadMediaAction(rawPayload: any) {
   try {
     const actor = await checkAuth(['admin', 'editor', 'author']);
+    const { projectId: containerProjectId } = await getActiveProject();
 
     const parsed = CmsMediaSchema.safeParse(rawPayload);
     if (!parsed.success) {
       return { success: false, error: 'VALIDATION_FAILED', details: parsed.error.format() };
     }
 
-    const media = await cmsDb.createMedia(parsed.data);
+    const media = await cmsDb.createMedia({
+      ...parsed.data,
+      projectId: containerProjectId
+    });
 
     await cmsDb.logAudit({
       userId: actor.userId,
@@ -360,6 +371,7 @@ export async function uploadMediaAction(rawPayload: any) {
       targetType: 'CmsMedia',
       targetId: media.id,
       details: JSON.stringify({ filename: media.filename, folder: media.folder }),
+      projectId: containerProjectId,
     });
 
     revalidatePath('/admin/media');
@@ -373,6 +385,7 @@ export async function uploadMediaAction(rawPayload: any) {
 export async function deleteMediaAction(mediaId: string) {
   try {
     const actor = await checkAuth(['admin', 'editor']);
+    const { projectId: containerProjectId } = await getActiveProject();
 
     const media = await cmsDb.deleteMedia(mediaId);
 
@@ -382,6 +395,7 @@ export async function deleteMediaAction(mediaId: string) {
       targetType: 'CmsMedia',
       targetId: mediaId,
       details: JSON.stringify({ filename: media.filename }),
+      projectId: containerProjectId,
     });
 
     revalidatePath('/admin/media');
@@ -403,6 +417,10 @@ export async function logAnalyticsAction(projectId: string, visitorId: string, r
     // Increment project view count in database
     await cmsDb.incrementProjectViews(projectId);
 
+    // Fetch the post page to get its container project context
+    const post = await cmsDb.getProjectById(projectId);
+    const containerId = post?.projectId || null;
+
     // Save full analytics tracker row
     const log = await cmsDb.logAnalytics({
       projectId,
@@ -416,6 +434,7 @@ export async function logAnalyticsAction(projectId: string, visitorId: string, r
       bounceRate: 0.20,
       timeOnPage: 45,
       scrollDepth: 0,
+      projectContainerId: containerId,
     });
 
     return { success: true, log };

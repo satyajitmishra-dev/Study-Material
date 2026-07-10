@@ -180,7 +180,7 @@ export const MOCK_PROJECTS: ProjectData[] = [
     tagline: 'The world\'s most premium developer learning platform shell built with Next.js 16.',
     category: 'React',
     githubUrl: 'https://github.com/studymaterial/studymaterial',
-    demoUrl: 'https://studymaterial.dev',
+    demoUrl: 'https://studymaterial.utool.in',
     stars: 1240,
     forks: 82,
     description: 'An open-source flagship implementation demonstrating Next.js 16 App Router, React 19 Compiler, Tailwind CSS v4 CSS-first design tokens, and smooth Framer Motion micro-interactions.',

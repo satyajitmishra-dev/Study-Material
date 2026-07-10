@@ -1,7 +1,7 @@
 import { getPrisma } from './dbClient';
-import { 
-  CmsProject, 
-  CmsAnalytics, 
+import {
+  CmsProject,
+  CmsAnalytics,
   User,
   Category,
   Tag,
@@ -22,7 +22,12 @@ import {
   Notification,
   AuthorProfile,
   CmsSetting,
-  ShareEvent
+  ShareEvent,
+  Integration,
+  ProjectRoadmap,
+  RoadmapTask,
+  ProjectTimeline,
+  Project
 } from '@prisma/client';
 
 // --- IN-MEMORY FALLBACK DATABASE FOR SANDBOX DEV ---
@@ -46,6 +51,11 @@ let inMemoryNotifications: Notification[] = [];
 let inMemoryAuthorProfiles: AuthorProfile[] = [];
 let inMemorySettings: CmsSetting[] = [];
 let inMemoryShareEvents: ShareEvent[] = [];
+let inMemoryIntegrations: Integration[] = [];
+let inMemoryRoadmaps: ProjectRoadmap[] = [];
+let inMemoryRoadmapTasks: RoadmapTask[] = [];
+let inMemoryTimelines: ProjectTimeline[] = [];
+let inMemoryProjects: any[] = [];
 
 // Seed initial records in Sandbox Mode
 const seedPublicSandboxDb = () => {
@@ -55,31 +65,31 @@ const seedPublicSandboxDb = () => {
 
   // Categories
   inMemoryCategories.push(
-    { id: 'cat_react', name: 'React', slug: 'react', description: 'Modern UI engineering, server components, and dynamic frameworks.', createdAt: now, updatedAt: now },
-    { id: 'cat_css', name: 'CSS', slug: 'css', description: 'Modern layout engines, spring variables, and fluid transitions.', createdAt: now, updatedAt: now },
-    { id: 'cat_ai', name: 'AI', slug: 'ai', description: 'Neural systems, prompt workflows, embeddings, and generative designs.', createdAt: now, updatedAt: now },
-    { id: 'cat_backend', name: 'Backend', slug: 'backend', description: 'Server structures, caching variables, and secure routing APIs.', createdAt: now, updatedAt: now }
+    { id: 'cat_react', name: 'React', slug: 'react', description: 'Modern UI engineering, server components, and dynamic frameworks.', createdAt: now, updatedAt: now, projectId: 'proj_sandbox_1' },
+    { id: 'cat_css', name: 'CSS', slug: 'css', description: 'Modern layout engines, spring variables, and fluid transitions.', createdAt: now, updatedAt: now, projectId: 'proj_sandbox_1' },
+    { id: 'cat_ai', name: 'AI', slug: 'ai', description: 'Neural systems, prompt workflows, embeddings, and generative designs.', createdAt: now, updatedAt: now, projectId: 'proj_sandbox_1' },
+    { id: 'cat_backend', name: 'Backend', slug: 'backend', description: 'Server structures, caching variables, and secure routing APIs.', createdAt: now, updatedAt: now, projectId: 'proj_sandbox_1' }
   );
 
   // Tags
   inMemoryTags.push(
-    { id: 'tag_nextjs', name: 'Next.js', slug: 'nextjs', description: 'Full-stack application framework capabilities.', createdAt: now, updatedAt: now },
-    { id: 'tag_ppr', name: 'PPR', slug: 'ppr', description: 'Partial Prerendering streaming holes.', createdAt: now, updatedAt: now },
-    { id: 'tag_framer', name: 'Framer Motion', slug: 'framer', description: 'Interactive spring physics components.', createdAt: now, updatedAt: now },
-    { id: 'tag_prisma', name: 'Prisma', slug: 'prisma', description: 'Structured schema and database client.', createdAt: now, updatedAt: now }
+    { id: 'tag_nextjs', name: 'Next.js', slug: 'nextjs', description: 'Full-stack application framework capabilities.', createdAt: now, updatedAt: now, projectId: 'proj_sandbox_1' },
+    { id: 'tag_ppr', name: 'PPR', slug: 'ppr', description: 'Partial Prerendering streaming holes.', createdAt: now, updatedAt: now, projectId: 'proj_sandbox_1' },
+    { id: 'tag_framer', name: 'Framer Motion', slug: 'framer', description: 'Interactive spring physics components.', createdAt: now, updatedAt: now, projectId: 'proj_sandbox_1' },
+    { id: 'tag_prisma', name: 'Prisma', slug: 'prisma', description: 'Structured schema and database client.', createdAt: now, updatedAt: now, projectId: 'proj_sandbox_1' }
   );
 
   // Settings
   inMemorySettings.push(
-    { 
-      id: 'set_home', 
-      key: 'homepage_layout', 
+    {
+      id: 'set_home',
+      key: 'homepage_layout',
       value: JSON.stringify(['hero', 'trending', 'categories', 'series', 'latest', 'newsletter']),
-      updatedAt: now 
+      updatedAt: now
     },
-    { 
-      id: 'set_nav', 
-      key: 'navbar_menu', 
+    {
+      id: 'set_nav',
+      key: 'navbar_menu',
       value: JSON.stringify([
         { label: 'Home', href: '/' },
         { label: 'Articles', href: '/posts' },
@@ -87,7 +97,7 @@ const seedPublicSandboxDb = () => {
         { label: 'Tags', href: '/tags' },
         { label: 'Saved Bookmarks', href: '/saved' }
       ]),
-      updatedAt: now 
+      updatedAt: now
     },
     {
       id: 'set_flags',
@@ -106,10 +116,16 @@ const seedPublicSandboxDb = () => {
     id: 'ap_admin',
     userId: 'sandbox-admin-id',
     bio: 'Principal Software Engineer & Technical Author. Specialize in Next.js, database caching, and CSS micro-animations.',
-    website: 'https://studymaterial.dev',
+    website: 'https://studymaterial.utool.in',
     twitter: 'https://twitter.com/studymaterial',
     github: 'https://github.com/satyajitmishra-dev',
     linkedin: 'https://linkedin.com/in/satyajitmishra',
+    coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80',
+    headline: 'Principal Software Architect | Open Source Creator',
+    location: 'Bhubaneswar, India',
+    portfolio: 'https://studymaterial.utool.in/portfolio',
+    experienceLevel: 'Principal Architect',
+    achievements: ['open_source_contributor', 'ai_wizard'],
     createdAt: now,
     updatedAt: now
   });
@@ -129,6 +145,156 @@ const seedPublicSandboxDb = () => {
     seriesId: 'ser_next',
     projectId: 'proj_sandbox_1',
     orderIndex: 1
+  });
+
+  // Setup sample projects
+  inMemoryProjects.push({
+    id: 'proj_sandbox_1',
+    name: 'Study Materials',
+    slug: 'study-materials',
+    logo: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=100&q=80',
+    description: 'A developer resource hub and learning pipeline for engineering topics.',
+    organizationId: 'org_sandbox_1',
+    createdAt: now,
+    updatedAt: now,
+    liveDemo: 'https://studymaterial.utool.in',
+    documentationUrl: 'https://docs.studymaterial.dev',
+    techStack: ['Next.js', 'React 19', 'TailwindCSS', 'Prisma', 'PostgreSQL'],
+    license: 'MIT',
+    banner: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80',
+    status: 'active',
+    startDate: '2026-01-01',
+    completionDate: null,
+    visibility: 'public',
+    tagsList: ['nextjs', 'react', 'education', 'developer-platform'],
+    githubUrl: 'https://github.com/satyajitmishra-dev/Study-Material',
+    githubMetadata: JSON.stringify({
+      repoName: 'satyajitmishra-dev/Study-Material',
+      description: 'Study Materials & developer resource center.',
+      stars: 45,
+      forks: 8,
+      watchers: 5,
+      openIssues: 2,
+      openPulls: 1,
+      license: 'MIT',
+      defaultBranch: 'main',
+      ownerAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
+      languages: ['TypeScript', 'CSS', 'HTML'],
+      topics: ['nextjs', 'react', 'education', 'cms'],
+      contributors: [
+        { login: 'satyajitmishra-dev', avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80' },
+        { login: 'developer-guest', avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80' }
+      ],
+      releases: [
+        { tag_name: 'v1.0.0', name: 'Initial Release', body: 'Launched initial developer resource center.' }
+      ],
+      commits: [
+        { sha: 'a8f4c29d', message: 'feat: support multi-tenant workspace setups', author: 'satyajitmishra-dev', date: now.toISOString() },
+        { sha: '8c91a34d', message: 'docs: update deployment guidelines', author: 'developer-guest', date: now.toISOString() }
+      ]
+    }),
+    githubLastSyncedAt: now
+  });
+
+  // Setup sample integration
+  inMemoryIntegrations.push({
+    id: 'int_sandbox_1',
+    projectId: 'proj_sandbox_1',
+    provider: 'github',
+    isActive: true,
+    credentials: 'mock_token',
+    settings: JSON.stringify({ repoUrl: 'https://github.com/satyajitmishra-dev/Study-Material' }),
+    metadata: inMemoryProjects[0].githubMetadata,
+    lastSyncedAt: now,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  // Setup sample roadmaps
+  inMemoryRoadmaps.push({
+    id: 'rm_sandbox_1',
+    projectId: 'proj_sandbox_1',
+    title: 'Phase 1: Core Foundation',
+    description: 'Establish repository structure and user authentication hooks.',
+    status: 'completed',
+    progress: 100,
+    estimatedCompletion: '2026-03-31',
+    orderIndex: 0,
+    createdAt: now,
+    updatedAt: now
+  }, {
+    id: 'rm_sandbox_2',
+    projectId: 'proj_sandbox_1',
+    title: 'Phase 2: Modular Project Dashboards',
+    description: 'Implement repo viewer, milestones, tasks, and analytics logging.',
+    status: 'in_progress',
+    progress: 50,
+    estimatedCompletion: '2026-07-31',
+    orderIndex: 1,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  // Roadmap tasks
+  inMemoryRoadmapTasks.push({
+    id: 'rmt_1',
+    roadmapId: 'rm_sandbox_1',
+    title: 'Initialize Prisma Schema & Adapter setup',
+    status: 'done',
+    orderIndex: 0,
+    createdAt: now,
+    updatedAt: now
+  }, {
+    id: 'rmt_2',
+    roadmapId: 'rm_sandbox_1',
+    title: 'Setup Google OAuth login callbacks',
+    status: 'done',
+    orderIndex: 1,
+    createdAt: now,
+    updatedAt: now
+  }, {
+    id: 'rmt_3',
+    roadmapId: 'rm_sandbox_2',
+    title: 'GitHub API Connection and metadata caching',
+    status: 'done',
+    orderIndex: 0,
+    createdAt: now,
+    updatedAt: now
+  }, {
+    id: 'rmt_4',
+    roadmapId: 'rm_sandbox_2',
+    title: 'Milestones and progress bar widgets',
+    status: 'in_progress',
+    orderIndex: 1,
+    createdAt: now,
+    updatedAt: now
+  }, {
+    id: 'rmt_5',
+    roadmapId: 'rm_sandbox_2',
+    title: 'Write unit tests for profile pages',
+    status: 'todo',
+    orderIndex: 2,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  // Setup timelines
+  inMemoryTimelines.push({
+    id: 'tl_sandbox_1',
+    projectId: 'proj_sandbox_1',
+    title: 'Connected GitHub Repository',
+    description: 'Connected project to satyajitmishra-dev/Study-Material.',
+    type: 'repo_sync',
+    date: new Date(now.getTime() - 3600000 * 48),
+    createdAt: now
+  }, {
+    id: 'tl_sandbox_2',
+    projectId: 'proj_sandbox_1',
+    title: 'Mastered Core Authentication',
+    description: 'Google OAuth login pipelines and account tokens functional.',
+    type: 'roadmap_complete',
+    date: new Date(now.getTime() - 3600000 * 24),
+    createdAt: now
   });
 };
 
@@ -194,7 +360,7 @@ class PublicDatabase {
     if (prisma) {
       return prisma.category.create({ data: { name, slug, description } });
     }
-    const newCat: Category = { id: `cat_${Date.now()}`, name, slug, description: description || null, createdAt: now, updatedAt: now };
+    const newCat: Category = { id: `cat_${Date.now()}`, name, slug, description: description || null, createdAt: now, updatedAt: now, projectId: null };
     inMemoryCategories.push(newCat);
     return newCat;
   }
@@ -221,7 +387,7 @@ class PublicDatabase {
     if (prisma) {
       return prisma.tag.create({ data: { name, slug, description } });
     }
-    const newTag: Tag = { id: `tag_${Date.now()}`, name, slug, description: description || null, createdAt: now, updatedAt: now };
+    const newTag: Tag = { id: `tag_${Date.now()}`, name, slug, description: description || null, createdAt: now, updatedAt: now, projectId: null };
     inMemoryTags.push(newTag);
     return newTag;
   }
@@ -490,6 +656,8 @@ class PublicDatabase {
           },
           categoryRef: true,
           postTags: { include: { tag: true } },
+          nextProject: true,
+          prevProject: true,
           _count: {
             select: {
               reactions: true,
@@ -651,22 +819,330 @@ class PublicDatabase {
     });
     inMemoryBookmarks = inMemoryBookmarks.filter(b => b.visitorId !== visitorId);
   }
+
+  // --- DEVELOPER PLATFORM QUERIES ---
+  async getDeveloperProfile(username: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      const user = await prisma.user.findUnique({
+        where: { username },
+        include: {
+          authorProfile: true,
+        }
+      });
+      if (!user) return null;
+
+      // Fetch projects owned by user (via organization ownerId)
+      const projects = await prisma.project.findMany({
+        where: { organization: { ownerId: user.id }, visibility: 'public' },
+        include: {
+          integrations: true,
+          roadmaps: { include: { tasks: true } },
+          timelines: true
+        }
+      });
+
+      // Fetch published CmsProjects written by user
+      const posts = await prisma.cmsProject.findMany({
+        where: { authorId: user.id, status: 'published' },
+        orderBy: { publishedAt: 'desc' },
+        include: { categoryRef: true }
+      });
+
+      // Fetch followers/following
+      const followers = await prisma.follow.findMany({
+        where: { targetType: 'DEVELOPER', targetId: user.id },
+        include: { user: true }
+      });
+
+      const following = await prisma.follow.findMany({
+        where: { userId: user.id }
+      });
+
+      return {
+        user,
+        projects,
+        posts,
+        followers,
+        following
+      };
+    }
+
+    // In-memory fallback
+    const memoryUser = [
+      { id: 'sandbox-admin-id', name: 'Sandbox Administrator', username: 'satyajit', email: 'admin@gmail.com', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80' },
+      { id: 'sandbox-user-id', name: 'Sandbox Developer', username: 'developer', email: 'developer@gmail.com', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80' }
+    ].find(u => u.username.toLowerCase() === username.toLowerCase());
+
+    if (!memoryUser) return null;
+
+    let profile = inMemoryAuthorProfiles.find(ap => ap.userId === memoryUser.id);
+    if (!profile) {
+      profile = {
+        id: `ap_${memoryUser.id}`,
+        userId: memoryUser.id,
+        bio: 'Principal Software Engineer & Technical Author. Specialize in Next.js, database caching, and CSS micro-animations.',
+        website: 'https://studymaterial.utool.in',
+        twitter: 'https://twitter.com/studymaterial',
+        github: 'https://github.com/satyajitmishra-dev',
+        linkedin: 'https://linkedin.com/in/satyajitmishra',
+        coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+        headline: 'Principal Engineer & Founder',
+        location: 'San Francisco, CA',
+        portfolio: 'https://satyajit.dev',
+        experienceLevel: 'Architect',
+        achievements: ['open_source_contributor', 'ai_wizard'],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    }
+
+    const projects = inMemoryProjects.filter(p => p.organizationId === 'org_sandbox_1');
+    const mappedProjects = projects.map(p => {
+      const prRoadmaps = inMemoryRoadmaps.filter(r => r.projectId === p.id).map(r => ({
+        ...r,
+        tasks: inMemoryRoadmapTasks.filter(t => t.roadmapId === r.id)
+      }));
+      const prTimelines = inMemoryTimelines.filter(t => t.projectId === p.id);
+      return {
+        ...p,
+        integrations: inMemoryIntegrations.filter(i => i.projectId === p.id),
+        roadmaps: prRoadmaps,
+        timelines: prTimelines
+      };
+    });
+
+    const posts = [
+      {
+        id: 'proj_sandbox_1',
+        title: 'Introducing Partial Prerendering',
+        slug: 'introducing-partial-prerendering',
+        description: 'Learn how to blend static page shells with streamed dynamic content in Next.js 16.',
+        category: 'React',
+        tags: ['Next.js', 'React Compiler', 'PPR'],
+        views: 1240,
+        status: 'published',
+        publishedAt: new Date(Date.now() - 3600000 * 24),
+        authorId: memoryUser.id
+      }
+    ].filter(post => post.authorId === memoryUser.id);
+
+    const followers = inMemoryFollows.filter(f => f.targetType === 'DEVELOPER' && f.targetId === memoryUser.id);
+    const following = inMemoryFollows.filter(f => f.userId === memoryUser.id);
+
+    return {
+      user: { ...memoryUser, authorProfile: profile },
+      projects: mappedProjects,
+      posts,
+      followers,
+      following
+    };
+  }
+
+  async getShowcaseProjects(): Promise<any[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.project.findMany({
+        where: { visibility: 'public' },
+        include: {
+          integrations: true,
+          roadmaps: { include: { tasks: true } },
+          timelines: true
+        }
+      });
+    }
+    return inMemoryProjects.filter((p: any) => p.visibility === 'public');
+  }
+
+  async getShowcaseProjectBySlug(slug: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.project.findFirst({
+        where: {
+          OR: [
+            { slug },
+            { id: slug }
+          ]
+        },
+        include: {
+          integrations: true,
+          roadmaps: {
+            orderBy: { orderIndex: 'asc' },
+            include: { tasks: { orderBy: { orderIndex: 'asc' } } }
+          },
+          timelines: { orderBy: { date: 'desc' } },
+          cmsProjects: {
+            where: { status: 'published' },
+            orderBy: { publishedAt: 'desc' },
+            include: { categoryRef: true }
+          },
+          organization: {
+            include: { owner: { include: { authorProfile: true } } }
+          }
+        }
+      });
+    }
+
+    // In-memory fallback
+    const project = inMemoryProjects.find(p => p.slug === slug || p.id === slug);
+    if (!project) return null;
+
+    const integrations = inMemoryIntegrations.filter(i => i.projectId === project.id);
+    const roadmaps = inMemoryRoadmaps
+      .filter(r => r.projectId === project.id)
+      .map(r => ({
+        ...r,
+        tasks: inMemoryRoadmapTasks.filter(t => t.roadmapId === r.id).sort((a, b) => a.orderIndex - b.orderIndex)
+      }))
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+
+    const timelines = inMemoryTimelines.filter(t => t.projectId === project.id).sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    const cmsProjects = [
+      {
+        id: 'proj_sandbox_1',
+        title: 'Introducing Partial Prerendering',
+        slug: 'introducing-partial-prerendering',
+        description: 'Learn how to blend static page shells with streamed dynamic content in Next.js 16.',
+        category: 'React',
+        tags: ['Next.js', 'React Compiler', 'PPR'],
+        views: 1240,
+        status: 'published',
+        publishedAt: new Date(Date.now() - 3600000 * 24),
+        authorId: 'sandbox-admin-id',
+        projectId: project.id
+      }
+    ].filter(post => post.projectId === project.id);
+
+    const owner = {
+      id: 'sandbox-admin-id',
+      name: 'Sandbox Administrator',
+      username: 'satyajit',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
+      authorProfile: inMemoryAuthorProfiles.find(ap => ap.userId === 'sandbox-admin-id')
+    };
+
+    return {
+      ...project,
+      integrations,
+      roadmaps,
+      timelines,
+      cmsProjects,
+      organization: {
+        owner
+      }
+    };
+  }
+
+  async getDeveloperActivity(userId: string): Promise<any[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      const posts = await prisma.cmsProject.findMany({
+        where: { authorId: userId, status: 'published' },
+        orderBy: { publishedAt: 'desc' }
+      });
+      const timelines = await prisma.projectTimeline.findMany({
+        where: { project: { organization: { ownerId: userId } } },
+        orderBy: { date: 'desc' }
+      });
+      const projects = await prisma.project.findMany({
+        where: { organization: { ownerId: userId } },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      const feed: any[] = [];
+      posts.forEach((p: any) => {
+        feed.push({
+          id: p.id,
+          type: 'article_publish',
+          title: `Published blog post: ${p.title}`,
+          description: p.description || '',
+          date: p.publishedAt || p.createdAt,
+          link: `/posts/${p.slug}`
+        });
+      });
+      timelines.forEach((t: any) => {
+        feed.push({
+          id: t.id,
+          type: t.type,
+          title: t.title,
+          description: t.description || '',
+          date: t.date,
+          link: null
+        });
+      });
+      projects.forEach((p: any) => {
+        feed.push({
+          id: p.id,
+          type: 'project_create',
+          title: `Created Project: ${p.name}`,
+          description: p.description || '',
+          date: p.createdAt,
+          link: `/projects/${p.slug}`
+        });
+      });
+
+      return feed.sort((a, b) => b.date.getTime() - a.date.getTime());
+    }
+
+    // In-memory fallback
+    return [
+      {
+        id: 'act_1',
+        type: 'project_create',
+        title: 'Created Project: Study Materials',
+        description: 'A developer resource hub and learning pipeline for engineering topics.',
+        date: new Date(Date.now() - 3600000 * 48),
+        link: '/projects/study-materials'
+      },
+      {
+        id: 'act_2',
+        type: 'repo_sync',
+        title: 'Connected GitHub Repository',
+        description: 'Connected project to satyajitmishra-dev/Study-Material.',
+        date: new Date(Date.now() - 3600000 * 48),
+        link: null
+      },
+      {
+        id: 'act_3',
+        type: 'roadmap_complete',
+        title: 'Mastered Core Authentication',
+        description: 'Google OAuth login pipelines and account tokens functional.',
+        date: new Date(Date.now() - 3600000 * 24),
+        link: null
+      },
+      {
+        id: 'act_4',
+        type: 'article_publish',
+        title: 'Published blog post: Introducing Partial Prerendering',
+        description: 'Learn how to blend static page shells with streamed dynamic content in Next.js 16.',
+        date: new Date(Date.now() - 3600000 * 24),
+        link: '/posts/introducing-partial-prerendering'
+      }
+    ];
+  }
 }
 
 export const publicDb = new PublicDatabase();
-export { 
-  inMemoryReactions, 
-  inMemoryBookmarks, 
-  inMemoryComments, 
-  inMemoryCommentReplies, 
-  inMemoryHighlights, 
-  inMemoryNotes, 
-  inMemoryFollows, 
-  inMemoryReadingSessions, 
-  inMemorySettings, 
-  inMemoryCategories, 
+export {
+  inMemoryReactions,
+  inMemoryBookmarks,
+  inMemoryComments,
+  inMemoryCommentReplies,
+  inMemoryHighlights,
+  inMemoryNotes,
+  inMemoryFollows,
+  inMemoryReadingSessions,
+  inMemorySettings,
+  inMemoryCategories,
   inMemoryTags,
   inMemoryCollections,
   inMemorySpamReports,
-  inMemoryShareEvents
+  inMemoryShareEvents,
+  inMemoryAuthorProfiles,
+  inMemoryIntegrations,
+  inMemoryRoadmaps,
+  inMemoryRoadmapTasks,
+  inMemoryTimelines,
+  inMemoryProjects
 };

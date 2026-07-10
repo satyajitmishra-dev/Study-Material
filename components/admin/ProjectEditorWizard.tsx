@@ -4,17 +4,17 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Save, 
-  Globe, 
-  Smartphone, 
-  Tablet as TabletIcon, 
-  Monitor, 
-  Check, 
-  Sparkles, 
-  RefreshCw, 
+import {
+  ArrowLeft,
+  ArrowRight,
+  Save,
+  Globe,
+  Smartphone,
+  Tablet as TabletIcon,
+  Monitor,
+  Check,
+  Sparkles,
+  RefreshCw,
   AlertCircle,
   Clock,
   Eye,
@@ -79,13 +79,13 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
     versionNote: '',
   };
 
-  const { 
-    register, 
-    handleSubmit, 
-    control, 
-    setValue, 
-    watch, 
-    formState: { errors } 
+  const {
+    register,
+    handleSubmit,
+    control,
+    setValue,
+    watch,
+    formState: { errors }
   } = useForm<CmsProjectInput>({
     resolver: zodResolver(CmsProjectSchema),
     defaultValues,
@@ -197,7 +197,7 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
         try {
           const parsed = JSON.parse(queued);
           triggerAutosave(parsed);
-        } catch (e) {}
+        } catch (e) { }
       }
     };
     window.addEventListener('online', handleOnline);
@@ -324,7 +324,7 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
               Unsaved changes...
             </span>
           )}
-          
+
           <Button type="button" onClick={() => triggerAutosave(formValues as CmsProjectInput)} variant="secondary" className="h-7 text-[10px] px-2.5">
             <Save className="w-3.5 h-3.5" />
             <span>Force Save</span>
@@ -341,8 +341,8 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
               type="button"
               onClick={() => setActiveStep(s.id)}
               className={`px-3 py-1.5 rounded-lg text-[12px] font-medium tracking-wide transition-all cursor-pointer
-                ${activeStep === s.id 
-                  ? 'bg-warm-white text-onyx shadow-premium font-semibold' 
+                ${activeStep === s.id
+                  ? 'bg-warm-white text-onyx shadow-premium font-semibold'
                   : 'text-stone hover:text-warm-white hover:bg-white/5'
                 }
               `}
@@ -358,7 +358,7 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <Card className="lg:col-span-8 p-6 space-y-6">
             <h3 className="text-[13px] font-bold text-warm-white uppercase tracking-wider">Project Parameters</h3>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input label="Title" {...register('title')} placeholder="Enter project title" />
               <Input label="Slug" {...register('slug')} placeholder="enter-slug-value" />
@@ -433,9 +433,9 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
                 <span>AI Co-Writer</span>
               </h3>
             </div>
-            
+
             <p className="text-[11px] text-stone">Highlight elements or write text, then trigger AI transformations using GPT-4o-mini.</p>
-            
+
             <div className="grid grid-cols-2 gap-2">
               <Button type="button" onClick={() => runAiAssistant('rewrite')} variant="secondary" className="text-[10px] py-1.5" disabled={isAiLoading}>
                 Professional Rewrite
@@ -462,13 +462,13 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
               <div className="p-4 bg-charcoal/20 border border-white/5 rounded-xl space-y-2 relative">
                 <span className="text-[9px] font-mono text-accent-cyan uppercase tracking-wider block">AI Response Draft:</span>
                 <p className="text-[11px] text-stone leading-relaxed whitespace-pre-wrap select-text">{aiOutput}</p>
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(aiOutput);
                     alert('Copied AI draft output to clipboard!');
                   }}
-                  variant="ghost" 
+                  variant="ghost"
                   className="absolute top-2 right-2 p-1 h-6 text-[9px]"
                 >
                   Copy
@@ -483,16 +483,28 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
       {activeStep === 'seo' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <Card className="lg:col-span-8 p-6 space-y-6">
-            <h3 className="text-[13px] font-bold text-warm-white uppercase tracking-wider flex items-center gap-2">
-              <Globe className="w-4 h-4 text-accent-pink" />
-              <span>SEO Parameters</span>
-            </h3>
-            
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <h3 className="text-[13px] font-bold text-warm-white uppercase tracking-wider flex items-center gap-2">
+                <Globe className="w-4 h-4 text-accent-pink" />
+                <span>SEO Parameters</span>
+              </h3>
+              <Button 
+                type="button" 
+                onClick={() => runAiAssistant('seo')} 
+                variant="secondary" 
+                className="text-[10px] py-1 flex items-center gap-1.5"
+                disabled={isAiLoading}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-accent-violet animate-pulse-slow" />
+                <span>AI Generate Metas</span>
+              </Button>
+            </div>
+
             <div className="space-y-4">
               <Input label="Meta Title" {...register('seoTitle')} placeholder="Optimized SERP Title (ideal: 50-60 chars)" />
               <Input label="Meta Description" {...register('seoDescription')} placeholder="SERP Snippet Description (ideal: 120-160 chars)" />
               <Input label="Focus Keywords (Comma separated)" {...register('seoKeywords')} placeholder="e.g. Next.js 16, React Compiler" />
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input label="Canonical URL" {...register('canonical')} placeholder="https://yoursite.com/canonical-slug" />
                 <Input label="Robots Rules" {...register('robots')} placeholder="index, follow" />
@@ -511,24 +523,24 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
               <div className="border-t border-white/5 pt-6 mt-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-[12px] font-bold text-warm-white uppercase tracking-wider">SERP Snippet Previews</h4>
-                  
+
                   <div className="flex items-center gap-1 bg-charcoal/40 border border-white/5 rounded-lg p-0.5 text-[10px]">
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => setSerpTab('google')}
                       className={`px-2 py-1 rounded cursor-pointer ${serpTab === 'google' ? 'bg-white/10 text-warm-white font-bold' : 'text-stone hover:text-warm-white'}`}
                     >
                       Google Search
                     </button>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => setSerpTab('twitter')}
                       className={`px-2 py-1 rounded cursor-pointer ${serpTab === 'twitter' ? 'bg-white/10 text-warm-white font-bold' : 'text-stone hover:text-warm-white'}`}
                     >
                       Twitter Card
                     </button>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => setSerpTab('facebook')}
                       className={`px-2 py-1 rounded cursor-pointer ${serpTab === 'facebook' ? 'bg-white/10 text-warm-white font-bold' : 'text-stone hover:text-warm-white'}`}
                     >
@@ -540,7 +552,7 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
                 <div className="p-4 rounded-xl bg-onyx/45 border border-white/5 min-h-[140px] flex items-center justify-center">
                   {serpTab === 'google' && (
                     <div className="w-full text-left font-sans space-y-1.5 select-text">
-                      <span className="text-[11px] text-stone font-light block">https://studymaterial.dev › preview › {formValues.slug || 'untitled'}</span>
+                      <span className="text-[11px] text-stone font-light block">https://studymaterial.utool.in › preview › {formValues.slug || 'untitled'}</span>
                       <span className="text-[17px] text-[#8ab4f8] hover:underline cursor-pointer font-medium block leading-tight truncate">
                         {formValues.seoTitle || formValues.title || 'Untitled Document'}
                       </span>
@@ -595,7 +607,7 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
           {/* SEO Score bar & live audits */}
           <Card className="lg:col-span-4 p-5 space-y-4">
             <h3 className="text-[13px] font-bold text-warm-white uppercase tracking-wider">SEO Index Audit</h3>
-            
+
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-stone">Realtime SEO Score</span>
               <span className={`text-2xl font-bold font-mono 
@@ -606,7 +618,7 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
             </div>
 
             <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
-              <div 
+              <div
                 className={`h-full transition-all duration-300
                   ${seoAnalysis.score >= 90 ? 'bg-accent-emerald' : seoAnalysis.score >= 70 ? 'bg-accent-cyan' : 'bg-accent-pink'}
                 `}
@@ -625,8 +637,8 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
                     error: 'bg-accent-pink/10 border-accent-pink/20 text-accent-pink'
                   };
                   return (
-                    <div 
-                      key={audit.id} 
+                    <div
+                      key={audit.id}
                       className={`p-2.5 rounded-lg border text-[11px] leading-relaxed flex items-start gap-2 ${colors[audit.status]}`}
                     >
                       <span className="mt-0.5 font-bold shrink-0">•</span>
@@ -670,7 +682,7 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
 
           {/* Simulated Device Sandbox Container */}
           <div className="flex justify-center w-full">
-            <div 
+            <div
               className={`bg-charcoal/30 border border-white/10 rounded-2xl overflow-hidden shadow-premium transition-all duration-300 flex flex-col
                 ${previewDevice === 'desktop' ? 'w-full max-w-4xl h-[520px]' : ''}
                 ${previewDevice === 'tablet' ? 'w-[640px] h-[520px]' : ''}
@@ -679,17 +691,17 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
             >
               {/* Device Header Simulator */}
               <div className="bg-charcoal/40 border-b border-white/5 px-4 py-2 text-[10px] font-mono text-stone/85 flex items-center justify-between">
-                <span>https://studymaterial.dev/preview/{formValues.slug || 'untitled'}</span>
+                <span>https://studymaterial.utool.in/preview/{formValues.slug || 'untitled'}</span>
                 <span className="uppercase text-accent-cyan tracking-wider font-bold">Responsive View</span>
               </div>
 
               {/* Rendered Viewport */}
               <div className="flex-1 overflow-y-auto p-8 bg-onyx text-warm-white custom-scrollbar select-text">
                 {formValues.coverImage && (
-                  <img 
-                    src={formValues.coverImage} 
-                    alt="cover" 
-                    className="w-full h-36 object-cover rounded-xl border border-white/5 mb-6" 
+                  <img
+                    src={formValues.coverImage}
+                    alt="cover"
+                    className="w-full h-36 object-cover rounded-xl border border-white/5 mb-6"
                   />
                 )}
                 <div className="space-y-4">
@@ -701,9 +713,9 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
                     <span>Language: {formValues.language}</span>
                   </div>
                   {/* HTML render */}
-                  <div 
+                  <div
                     className="text-[13px] text-stone/95 leading-relaxed prose prose-invert max-w-none"
-                    dangerouslySetInnerHTML={{ __html: formValues.content }} 
+                    dangerouslySetInnerHTML={{ __html: formValues.content }}
                   />
                 </div>
               </div>
@@ -717,7 +729,7 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <Card className="lg:col-span-8 p-6 space-y-6">
             <h3 className="text-[13px] font-bold text-warm-white uppercase tracking-wider">Release Workflow</h3>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-[11px] font-semibold text-stone uppercase tracking-wider block mb-1.5">Publication Status</label>

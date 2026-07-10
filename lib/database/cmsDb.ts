@@ -1,11 +1,23 @@
 import { getPrisma } from './dbClient';
-import { 
-  CmsProject as PrismaProject, 
-  CmsVersion as PrismaVersion, 
-  CmsMedia as PrismaMedia, 
-  CmsAnalytics as PrismaAnalytics, 
-  CmsAuditLog as PrismaAuditLog 
+import {
+  CmsProject as PrismaProject,
+  CmsVersion as PrismaVersion,
+  CmsMedia as PrismaMedia,
+  CmsAnalytics as PrismaAnalytics,
+  CmsAuditLog as PrismaAuditLog,
+  Integration,
+  ProjectRoadmap,
+  RoadmapTask,
+  ProjectTimeline,
+  Project
 } from '@prisma/client';
+import {
+  inMemoryProjects as inMemoryProjectContainers,
+  inMemoryIntegrations,
+  inMemoryRoadmaps,
+  inMemoryRoadmapTasks,
+  inMemoryTimelines
+} from './publicDb';
 
 // Shared types
 export type CmsProject = PrismaProject;
@@ -25,6 +37,7 @@ export interface ProjectSearchParams {
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+  projectId?: string;
 }
 
 // In-Memory Database State for Sandbox Development
@@ -43,6 +56,7 @@ const seedSandboxDb = () => {
 
   // Create initial projects
   const proj1: CmsProject = {
+    type: 'article',
     id: 'proj_sandbox_1',
     title: 'Introducing Partial Prerendering',
     slug: 'introducing-partial-prerendering',
@@ -64,7 +78,7 @@ const seedSandboxDb = () => {
     seoDescription: 'A complete developer overview of Next.js 16 Partial Prerendering, layouts, and streaming suspense holes.',
     seoKeywords: 'Next.js 16, PPR, React 19',
     ogImage: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80',
-    canonical: 'https://studymaterial.dev/introducing-partial-prerendering',
+    canonical: 'https://studymaterial.utool.in/introducing-partial-prerendering',
     robots: 'index, follow',
     schemaJson: JSON.stringify({ '@context': 'https://schema.org', '@type': 'TechArticle' }),
     seoScore: 92,
@@ -83,9 +97,11 @@ const seedSandboxDb = () => {
     prerequisiteId: null,
     categoryId: 'cat_react',
     password: null,
+    projectId: 'proj_sandbox_1',
   };
 
   const proj2: CmsProject = {
+    type: 'article',
     id: 'proj_sandbox_2',
     title: 'Mastering Framer Motion springs',
     slug: 'mastering-framer-motion-springs',
@@ -107,7 +123,7 @@ const seedSandboxDb = () => {
     seoDescription: 'Learn custom physical motion setups to mimic weight and tension in UI designs.',
     seoKeywords: 'Framer Motion, CSS, UI design',
     ogImage: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80',
-    canonical: 'https://studymaterial.dev/mastering-framer-motion-springs',
+    canonical: 'https://studymaterial.utool.in/mastering-framer-motion-springs',
     robots: 'index, follow',
     schemaJson: null,
     seoScore: 78,
@@ -126,6 +142,7 @@ const seedSandboxDb = () => {
     prerequisiteId: null,
     categoryId: 'cat_css',
     password: null,
+    projectId: 'proj_sandbox_1',
   };
 
   inMemoryProjects.push(proj1, proj2);
@@ -155,6 +172,7 @@ const seedSandboxDb = () => {
       folder: '/diagrams',
       tags: ['compiler', 'architecture'],
       createdAt: now,
+      projectId: 'proj_sandbox_1',
     },
     {
       id: 'media_sandbox_2',
@@ -165,6 +183,7 @@ const seedSandboxDb = () => {
       folder: '/assets',
       tags: ['motion', 'cover'],
       createdAt: now,
+      projectId: 'proj_sandbox_1',
     }
   );
 
@@ -186,6 +205,7 @@ const seedSandboxDb = () => {
       timeOnPage: 180 + i * 20,
       scrollDepth: 75,
       createdAt: logDate,
+      projectContainerId: 'proj_sandbox_1',
     });
   }
 
@@ -198,6 +218,7 @@ const seedSandboxDb = () => {
     targetId: 'proj_sandbox_1',
     details: 'Created sandbox initial project',
     createdAt: now,
+    projectId: 'proj_sandbox_1',
   });
 };
 
@@ -212,11 +233,11 @@ class CmsDatabase {
   // --- PROJECTS ---
   async getProjects(params: ProjectSearchParams): Promise<{ items: CmsProject[]; total: number }> {
     const prisma = this.prisma;
-    
+
     if (prisma) {
-      const { 
-        search, status, category, tag, language, authorId, 
-        sortBy = 'updatedAt', sortOrder = 'desc', limit = 20, offset = 0 
+      const {
+        search, status, category, tag, language, authorId, projectId,
+        sortBy = 'updatedAt', sortOrder = 'desc', limit = 20, offset = 0
       } = params;
 
       const where: any = {};
@@ -243,6 +264,9 @@ class CmsDatabase {
       if (authorId) {
         where.authorId = authorId;
       }
+      if (projectId) {
+        where.projectId = projectId;
+      }
 
       const [items, total] = await Promise.all([
         prisma.cmsProject.findMany({
@@ -261,7 +285,7 @@ class CmsDatabase {
 
       if (params.search) {
         const query = params.search.toLowerCase();
-        items = items.filter(p => 
+        items = items.filter(p =>
           p.title.toLowerCase().includes(query) ||
           p.slug.toLowerCase().includes(query) ||
           p.description?.toLowerCase().includes(query) ||
@@ -283,6 +307,9 @@ class CmsDatabase {
       if (params.authorId) {
         items = items.filter(p => p.authorId === params.authorId);
       }
+      if (params.projectId) {
+        items = items.filter(p => (p as any).projectId === params.projectId);
+      }
 
       // Sort
       const sortBy = params.sortBy || 'updatedAt';
@@ -302,38 +329,77 @@ class CmsDatabase {
     }
   }
 
-  async getProjectById(id: string): Promise<CmsProject | null> {
+  async getProjectById(id: string, projectId?: string): Promise<CmsProject | null> {
     const prisma = this.prisma;
     if (prisma) {
-      return prisma.cmsProject.findUnique({ where: { id } });
+      const where: any = { id };
+      if (projectId) where.projectId = projectId;
+      return prisma.cmsProject.findFirst({ where });
     }
-    return inMemoryProjects.find(p => p.id === id) || null;
+    const found = inMemoryProjects.find(p => p.id === id) || null;
+    if (found && projectId && (found as any).projectId !== projectId) return null;
+    return found;
   }
 
-  async getProjectBySlug(slug: string): Promise<CmsProject | null> {
+  async getProjectBySlug(slug: string, projectId?: string): Promise<CmsProject | null> {
     const prisma = this.prisma;
     if (prisma) {
-      return prisma.cmsProject.findUnique({ where: { slug } });
+      const where: any = { slug };
+      if (projectId) where.projectId = projectId;
+      return prisma.cmsProject.findFirst({ where });
     }
-    return inMemoryProjects.find(p => p.slug === slug) || null;
+    const found = inMemoryProjects.find(p => p.slug === slug) || null;
+    if (found && projectId && (found as any).projectId !== projectId) return null;
+    return found;
   }
 
-  async createProject(data: Omit<CmsProject, 'createdAt' | 'updatedAt' | 'views'> & { createdAt?: Date }): Promise<CmsProject> {
+  async createProject(data: Partial<CmsProject> & Pick<CmsProject, 'title' | 'slug' | 'content' | 'authorId'> & { createdAt?: Date }): Promise<CmsProject> {
     const prisma = this.prisma;
     const now = new Date();
-    
+    const type = data.type || 'article';
+
     if (prisma) {
       return prisma.cmsProject.create({
         data: {
           ...data,
+          type,
           views: 0,
           createdAt: data.createdAt || now,
           updatedAt: now,
-        }
+        } as any
       });
     } else {
       const newProj: CmsProject = {
+        id: `post_${Date.now()}`,
+        description: null,
+        category: null,
+        tags: [],
+        language: 'en',
+        visibility: 'public',
+        password: null,
+        thumbnail: null,
+        coverImage: null,
+        seoTitle: null,
+        seoDescription: null,
+        seoKeywords: null,
+        ogImage: null,
+        canonical: null,
+        robots: null,
+        schemaJson: null,
+        seoScore: 0,
+        scheduledAt: null,
+        publishedAt: null,
+        versionNote: null,
+        version: 1,
+        parentId: null,
+        nextProjectId: null,
+        prevProjectId: null,
+        prerequisiteId: null,
+        categoryId: null,
+        projectId: null,
         ...data,
+        status: data.status || 'draft',
+        type,
         views: 0,
         createdAt: data.createdAt || now,
         updatedAt: now,
@@ -454,7 +520,7 @@ class CmsDatabase {
   }
 
   // --- MEDIA LIBRARY ---
-  async getMedia(params: { folder?: string; search?: string; limit?: number; offset?: number }): Promise<{ items: CmsMedia[]; total: number }> {
+  async getMedia(params: { folder?: string; search?: string; limit?: number; offset?: number; projectId?: string }): Promise<{ items: CmsMedia[]; total: number }> {
     const prisma = this.prisma;
     const limit = params.limit || 50;
     const offset = params.offset || 0;
@@ -463,6 +529,9 @@ class CmsDatabase {
       const where: any = {};
       if (params.folder) {
         where.folder = params.folder;
+      }
+      if (params.projectId) {
+        where.projectId = params.projectId;
       }
       if (params.search) {
         where.OR = [
@@ -487,14 +556,17 @@ class CmsDatabase {
       if (params.folder) {
         items = items.filter(m => m.folder === params.folder);
       }
+      if (params.projectId) {
+        items = items.filter(m => (m as any).projectId === params.projectId);
+      }
       if (params.search) {
         const query = params.search.toLowerCase();
-        items = items.filter(m => 
+        items = items.filter(m =>
           m.filename.toLowerCase().includes(query) ||
           m.tags.some(t => t.toLowerCase().includes(query))
         );
       }
-      
+
       items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       const total = items.length;
       items = items.slice(offset, offset + limit);
@@ -542,7 +614,7 @@ class CmsDatabase {
   // --- ANALYTICS ---
   async getAnalytics(projectId?: string, startDate?: Date, endDate?: Date): Promise<CmsAnalytics[]> {
     const prisma = this.prisma;
-    
+
     if (prisma) {
       const where: any = {};
       if (projectId) {
@@ -574,7 +646,7 @@ class CmsDatabase {
     }
   }
 
-  async logAnalytics(data: Omit<CmsAnalytics, 'id' | 'createdAt'>): Promise<CmsAnalytics> {
+  async logAnalytics(data: Omit<Omit<CmsAnalytics, 'id' | 'createdAt'>, 'projectContainerId'> & { projectContainerId?: string | null }): Promise<CmsAnalytics> {
     const prisma = this.prisma;
     const now = new Date();
     const id = `an_${Math.random().toString(36).substr(2, 9)}`;
@@ -583,6 +655,7 @@ class CmsDatabase {
       return prisma.cmsAnalytics.create({
         data: {
           ...data,
+          projectContainerId: data.projectContainerId || null,
           createdAt: now,
         }
       });
@@ -590,6 +663,7 @@ class CmsDatabase {
       const log: CmsAnalytics = {
         id,
         ...data,
+        projectContainerId: data.projectContainerId ?? null,
         createdAt: now,
       };
       inMemoryAnalytics.push(log);
@@ -598,10 +672,12 @@ class CmsDatabase {
   }
 
   // --- AUDIT LOGS ---
-  async getAuditLogs(userId?: string, limit: number = 50): Promise<CmsAuditLog[]> {
+  async getAuditLogs(userId?: string, limit: number = 50, projectId?: string): Promise<CmsAuditLog[]> {
     const prisma = this.prisma;
     if (prisma) {
-      const where = userId ? { userId } : {};
+      const where: any = {};
+      if (userId) where.userId = userId;
+      if (projectId) where.projectId = projectId;
       return prisma.cmsAuditLog.findMany({
         where,
         take: limit,
@@ -612,11 +688,14 @@ class CmsDatabase {
     if (userId) {
       logs = logs.filter(l => l.userId === userId);
     }
+    if (projectId) {
+      logs = logs.filter(l => (l as any).projectId === projectId);
+    }
     logs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     return logs.slice(0, limit);
   }
 
-  async logAudit(data: Omit<CmsAuditLog, 'id' | 'createdAt'>): Promise<CmsAuditLog> {
+  async logAudit(data: Omit<Omit<CmsAuditLog, 'id' | 'createdAt'>, 'projectId'> & { projectId?: string | null }): Promise<CmsAuditLog> {
     const prisma = this.prisma;
     const now = new Date();
     const id = `aud_${Math.random().toString(36).substr(2, 9)}`;
@@ -625,6 +704,7 @@ class CmsDatabase {
       return prisma.cmsAuditLog.create({
         data: {
           ...data,
+          projectId: data.projectId || null,
           createdAt: now,
         }
       });
@@ -633,9 +713,369 @@ class CmsDatabase {
         id,
         ...data,
         createdAt: now,
-      };
+      } as any;
       inMemoryAuditLogs.push(log);
       return log;
+    }
+  }
+
+  // --- DEVELOPER PROJECTS (PRODUCT CONTAINERS) ---
+  async getDeveloperProjects(userId: string): Promise<Project[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.project.findMany({
+        where: { organization: { ownerId: userId } },
+        include: { integrations: true }
+      });
+    }
+    return inMemoryProjectContainers;
+  }
+
+  async getDeveloperProjectById(id: string): Promise<Project | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.project.findUnique({
+        where: { id },
+        include: { integrations: true }
+      });
+    }
+    return inMemoryProjectContainers.find((p: any) => p.id === id) || null;
+  }
+
+  async getDeveloperProjectBySlug(slug: string): Promise<Project | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.project.findUnique({
+        where: { slug },
+        include: { integrations: true }
+      });
+    }
+    return inMemoryProjectContainers.find((p: any) => p.slug === slug) || null;
+  }
+
+  async createDeveloperProject(data: any): Promise<Project> {
+    const prisma = this.prisma;
+    const now = new Date();
+    const id = `proj_${Date.now()}`;
+    if (prisma) {
+      return prisma.project.create({
+        data: {
+          ...data,
+          createdAt: now,
+          updatedAt: now
+        }
+      });
+    }
+    const newProj = {
+      id,
+      ...data,
+      createdAt: now,
+      updatedAt: now
+    };
+    inMemoryProjectContainers.push(newProj);
+    return newProj as any;
+  }
+
+  async updateDeveloperProject(id: string, data: any): Promise<Project> {
+    const prisma = this.prisma;
+    const now = new Date();
+    if (prisma) {
+      return prisma.project.update({
+        where: { id },
+        data: {
+          ...data,
+          updatedAt: now
+        }
+      });
+    }
+    const idx = inMemoryProjectContainers.findIndex((p: any) => p.id === id);
+    if (idx === -1) throw new Error('Project not found');
+    const updated = {
+      ...inMemoryProjectContainers[idx],
+      ...data,
+      updatedAt: now
+    };
+    inMemoryProjectContainers[idx] = updated;
+    return updated;
+  }
+
+  // --- ROADMAP MILESTONES & TASKS ---
+  async getProjectRoadmap(projectId: string): Promise<ProjectRoadmap[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.projectRoadmap.findMany({
+        where: { projectId },
+        orderBy: { orderIndex: 'asc' },
+        include: { tasks: { orderBy: { orderIndex: 'asc' } } }
+      });
+    }
+    return inMemoryRoadmaps.filter((r: any) => r.projectId === projectId).map((r: any) => ({
+      ...r,
+      tasks: inMemoryRoadmapTasks.filter((t: any) => t.roadmapId === r.id)
+    })) as any;
+  }
+
+  async upsertRoadmapMilestone(data: any): Promise<ProjectRoadmap> {
+    const prisma = this.prisma;
+    const now = new Date();
+    if (prisma) {
+      if (data.id) {
+        return prisma.projectRoadmap.update({
+          where: { id: data.id },
+          data: {
+            title: data.title,
+            description: data.description,
+            status: data.status,
+            progress: data.progress,
+            estimatedCompletion: data.estimatedCompletion,
+            orderIndex: data.orderIndex,
+            updatedAt: now
+          }
+        });
+      } else {
+        return prisma.projectRoadmap.create({
+          data: {
+            projectId: data.projectId,
+            title: data.title,
+            description: data.description,
+            status: data.status,
+            progress: data.progress,
+            estimatedCompletion: data.estimatedCompletion,
+            orderIndex: data.orderIndex || 0,
+            createdAt: now,
+            updatedAt: now
+          }
+        });
+      }
+    }
+
+    if (data.id) {
+      const idx = inMemoryRoadmaps.findIndex((r: any) => r.id === data.id);
+      if (idx === -1) throw new Error('Milestone not found');
+      const updated = {
+        ...inMemoryRoadmaps[idx],
+        title: data.title,
+        description: data.description || null,
+        status: data.status,
+        progress: data.progress,
+        estimatedCompletion: data.estimatedCompletion || null,
+        updatedAt: now
+      };
+      inMemoryRoadmaps[idx] = updated;
+      return updated as any;
+    } else {
+      const newMilestone = {
+        id: `rm_${Date.now()}`,
+        projectId: data.projectId,
+        title: data.title,
+        description: data.description || null,
+        status: data.status,
+        progress: data.progress || 0,
+        estimatedCompletion: data.estimatedCompletion || null,
+        orderIndex: data.orderIndex || 0,
+        createdAt: now,
+        updatedAt: now
+      };
+      inMemoryRoadmaps.push(newMilestone as any);
+      return newMilestone as any;
+    }
+  }
+
+  async deleteRoadmapMilestone(id: string): Promise<void> {
+    const prisma = this.prisma;
+    if (prisma) {
+      await prisma.projectRoadmap.delete({ where: { id } });
+      return;
+    }
+    const idx = inMemoryRoadmaps.findIndex((r: any) => r.id === id);
+    if (idx >= 0) inMemoryRoadmaps.splice(idx, 1);
+    const rIdx = inMemoryRoadmapTasks.findIndex((t: any) => t.roadmapId === id);
+    while (rIdx >= 0) {
+      inMemoryRoadmapTasks.splice(rIdx, 1);
+    }
+  }
+
+  async upsertRoadmapTask(data: any): Promise<RoadmapTask> {
+    const prisma = this.prisma;
+    const now = new Date();
+    if (prisma) {
+      if (data.id) {
+        return prisma.roadmapTask.update({
+          where: { id: data.id },
+          data: {
+            title: data.title,
+            status: data.status,
+            orderIndex: data.orderIndex,
+            updatedAt: now
+          }
+        });
+      } else {
+        return prisma.roadmapTask.create({
+          data: {
+            roadmapId: data.roadmapId,
+            title: data.title,
+            status: data.status || 'todo',
+            orderIndex: data.orderIndex || 0,
+            createdAt: now,
+            updatedAt: now
+          }
+        });
+      }
+    }
+
+    if (data.id) {
+      const idx = inMemoryRoadmapTasks.findIndex((t: any) => t.id === data.id);
+      if (idx === -1) throw new Error('Task not found');
+      const updated = {
+        ...inMemoryRoadmapTasks[idx],
+        title: data.title,
+        status: data.status,
+        updatedAt: now
+      };
+      inMemoryRoadmapTasks[idx] = updated;
+      return updated as any;
+    } else {
+      const newTask = {
+        id: `rmt_${Date.now()}`,
+        roadmapId: data.roadmapId,
+        title: data.title,
+        status: data.status || 'todo',
+        orderIndex: data.orderIndex || 0,
+        createdAt: now,
+        updatedAt: now
+      };
+      inMemoryRoadmapTasks.push(newTask as any);
+      return newTask as any;
+    }
+  }
+
+  async deleteRoadmapTask(id: string): Promise<void> {
+    const prisma = this.prisma;
+    if (prisma) {
+      await prisma.roadmapTask.delete({ where: { id } });
+      return;
+    }
+    const idx = inMemoryRoadmapTasks.findIndex((t: any) => t.id === id);
+    if (idx >= 0) inMemoryRoadmapTasks.splice(idx, 1);
+  }
+
+  // --- PROJECT TIMELINE HUB ---
+  async getProjectTimeline(projectId: string): Promise<ProjectTimeline[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.projectTimeline.findMany({
+        where: { projectId },
+        orderBy: { date: 'desc' }
+      });
+    }
+    return inMemoryTimelines.filter((t: any) => t.projectId === projectId).sort((a: any, b: any) => b.date.getTime() - a.date.getTime()) as any;
+  }
+
+  async createTimelineEvent(data: any): Promise<ProjectTimeline> {
+    const prisma = this.prisma;
+    const now = new Date();
+    if (prisma) {
+      return prisma.projectTimeline.create({
+        data: {
+          projectId: data.projectId,
+          title: data.title,
+          description: data.description,
+          type: data.type || 'manual',
+          date: data.date ? new Date(data.date) : now,
+          createdAt: now
+        }
+      });
+    }
+    const newEvent = {
+      id: `tl_${Date.now()}`,
+      projectId: data.projectId,
+      title: data.title,
+      description: data.description || null,
+      type: data.type || 'manual',
+      date: data.date ? new Date(data.date) : now,
+      createdAt: now
+    };
+    inMemoryTimelines.push(newEvent);
+    return newEvent as any;
+  }
+
+  async deleteTimelineEvent(id: string): Promise<void> {
+    const prisma = this.prisma;
+    if (prisma) {
+      await prisma.projectTimeline.delete({ where: { id } });
+      return;
+    }
+    const idx = inMemoryTimelines.findIndex((t: any) => t.id === id);
+    if (idx >= 0) inMemoryTimelines.splice(idx, 1);
+  }
+
+  // --- GENERIC INTEGRATIONS LAYER ---
+  async getIntegration(projectId: string, provider: string): Promise<Integration | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.integration.findUnique({
+        where: { projectId_provider: { projectId, provider } }
+      });
+    }
+    return inMemoryIntegrations.find((i: any) => i.projectId === projectId && i.provider === provider) || null;
+  }
+
+  async upsertIntegration(data: any): Promise<Integration> {
+    const prisma = this.prisma;
+    const now = new Date();
+    if (prisma) {
+      return prisma.integration.upsert({
+        where: { projectId_provider: { projectId: data.projectId, provider: data.provider } },
+        update: {
+          isActive: data.isActive !== undefined ? data.isActive : true,
+          credentials: data.credentials,
+          settings: data.settings,
+          metadata: data.metadata,
+          lastSyncedAt: data.lastSyncedAt || now,
+          updatedAt: now
+        },
+        create: {
+          projectId: data.projectId,
+          provider: data.provider,
+          isActive: data.isActive !== undefined ? data.isActive : true,
+          credentials: data.credentials,
+          settings: data.settings,
+          metadata: data.metadata,
+          lastSyncedAt: data.lastSyncedAt || now,
+          createdAt: now,
+          updatedAt: now
+        }
+      });
+    }
+
+    const idx = inMemoryIntegrations.findIndex((i: any) => i.projectId === data.projectId && i.provider === data.provider);
+    if (idx >= 0) {
+      const updated = {
+        ...inMemoryIntegrations[idx],
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        credentials: data.credentials || inMemoryIntegrations[idx].credentials,
+        settings: data.settings || inMemoryIntegrations[idx].settings,
+        metadata: data.metadata || inMemoryIntegrations[idx].metadata,
+        lastSyncedAt: data.lastSyncedAt || now,
+        updatedAt: now
+      };
+      inMemoryIntegrations[idx] = updated;
+      return updated as any;
+    } else {
+      const newIntegration = {
+        id: `int_${Date.now()}`,
+        projectId: data.projectId,
+        provider: data.provider,
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        credentials: data.credentials || null,
+        settings: data.settings || null,
+        metadata: data.metadata || null,
+        lastSyncedAt: data.lastSyncedAt || now,
+        createdAt: now,
+        updatedAt: now
+      };
+      inMemoryIntegrations.push(newIntegration);
+      return newIntegration as any;
     }
   }
 }

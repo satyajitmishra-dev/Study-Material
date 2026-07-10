@@ -10,6 +10,7 @@ model User {
   id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
+  username      String?   @unique
   emailVerified DateTime?
   image         String?
   avatar        String?
@@ -22,6 +23,9 @@ model User {
   projects      CmsProject[]
   auditLogs     CmsAuditLog[]
   workspaces    WorkspaceMember[]
+  preferences   String?   @db.Text
+  organizations Organization[]
+  orgAuditLogs  OrganizationAuditLog[]
 
   // --- PUBLIC PLATFORM RELATIONS ---
   authorProfile     AuthorProfile?
@@ -84,6 +88,7 @@ model CmsProject {
   category       String?        // Legacy/backup category text
   tags           String[]       @default([]) // Legacy/backup tags list
   language       String         @default("en")
+  type           String         @default("article") // article | release_notes | update
   visibility     String         @default("public") // public | private | unlisted | password | members | premium
   password       String?        // Password for password-protected posts
   thumbnail      String?
@@ -106,6 +111,8 @@ model CmsProject {
   updatedAt      DateTime       @updatedAt
   authorId       String
   author         User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   versions       CmsVersion[]
   analytics      CmsAnalytics[]
 
@@ -173,6 +180,8 @@ model CmsMedia {
   folder    String   @default("/")
   tags      String[]
   createdAt DateTime @default(now())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([folder])
 }
@@ -193,6 +202,8 @@ model CmsAnalytics {
   timeOnPage Int         @default(0) // seconds
   scrollDepth Float      @default(0.0) // scroll percentage (0 to 100)
   createdAt  DateTime    @default(now())
+  projectContainerId String?
+  projectContainer   Project? @relation("ProjectContainerAnalytics", fields: [projectContainerId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([userId])
@@ -208,6 +219,8 @@ model CmsAuditLog {
   targetId   String?
   details    String?  @db.Text
   createdAt  DateTime @default(now())
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
@@ -395,6 +408,8 @@ model PromptTemplate {
   isCustom     Boolean    @default(false)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  projectId   String?
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
 }
@@ -411,6 +426,8 @@ model PublishingCredential {
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  projectId   String?
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
 }
@@ -427,6 +444,8 @@ model Category {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   projects    CmsProject[]
+  projectId   String?
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model Tag {
@@ -437,6 +456,8 @@ model Tag {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   projects    PostTag[]
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model PostTag {
@@ -631,6 +652,8 @@ model Comment {
   replies    CommentReply[]
   reports    CommentReport[]
   spamReports SpamReport[]
+  projectContainerId String?
+  projectContainer   Project? @relation("ProjectContainerComments", fields: [projectContainerId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([userId])
@@ -709,6 +732,12 @@ model AuthorProfile {
   twitter   String?
   github    String?
   linkedin  String?
+  coverImage      String?
+  headline        String?
+  location        String?
+  portfolio       String?
+  experienceLevel String?
+  achievements    String[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -731,4 +760,190 @@ model ShareEvent {
   createdAt DateTime   @default(now())
 
   @@index([projectId])
+}
+
+model Organization {
+  id                 String     @id @default(cuid())
+  name               String
+  slug               String     @unique
+  logo               String?
+  description        String?
+  timezone           String     @default("UTC")
+  language           String     @default("en")
+  domain             String?
+  plan               String     @default("free") // free | pro | team | enterprise
+  status             String     @default("active") // active | suspended | archived
+  ownerId            String
+  owner              User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  projects           Project[]
+  auditLogs          OrganizationAuditLog[]
+  apiKeys            ApiKey[]
+  webhooks           Webhook[]
+}
+
+model Project {
+  id             String                 @id @default(cuid())
+  name           String
+  slug           String                 @unique
+  logo           String?
+  description    String?
+  organizationId String
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  
+  // Scoped resources
+  cmsProjects    CmsProject[]
+  media          CmsMedia[]
+  categories     Category[]
+  tags           Tag[]
+  comments       Comment[]              @relation("ProjectContainerComments")
+  templates      PromptTemplate[]
+  credentials    PublishingCredential[]
+  analytics      CmsAnalytics[]         @relation("ProjectContainerAnalytics")
+  auditLogs      CmsAuditLog[]
+
+  // --- DEVELOPER PLATFORM METADATA ---
+  liveDemo           String?
+  documentationUrl   String?
+  techStack          String[]               @default([])
+  license            String?
+  banner             String?
+  status             String                 @default("development") // development | active | completed | archived
+  startDate          String?
+  completionDate     String?
+  visibility         String                 @default("public") // public | private
+  tagsList           String[]               @default([])
+  integrations       Integration[]
+  roadmaps           ProjectRoadmap[]
+  timelines          ProjectTimeline[]
+}
+
+model Integration {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  provider     String    // github | gitlab | bitbucket | figma | notion
+  isActive     Boolean   @default(true)
+  credentials  String?   @db.Text // Encrypted or serialized credentials
+  settings     String?   @db.Text // JSON config mapping
+  metadata     String?   @db.Text // Cached JSON data (readme, repo info, branch lists, languages)
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([projectId, provider])
+  @@index([projectId])
+}
+
+model ProjectRoadmap {
+  id                  String   @id @default(cuid())
+  projectId           String
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title               String   // Milestone title, e.g. "Phase 1: Auth Integration"
+  description         String?  @db.Text
+  status              String   @default("planned") // planned | in_progress | completed
+  progress            Int      @default(0) // 0 - 100%
+  estimatedCompletion String?  // String representation of date
+  orderIndex          Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  tasks               RoadmapTask[]
+
+  @@index([projectId])
+}
+
+model RoadmapTask {
+  id         String         @id @default(cuid())
+  roadmapId  String
+  roadmap    ProjectRoadmap @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  title      String
+  status     String         @default("todo") // todo | in_progress | done
+  orderIndex Int            @default(0)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([roadmapId])
+}
+
+model ProjectTimeline {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String   // e.g., "Released Version 1.0"
+  description String?  @db.Text
+  type        String   @default("manual") // manual | repo_sync | article_publish | roadmap_complete | version_release
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model ApiKey {
+  id             String       @id @default(cuid())
+  key            String       @unique
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  expiresAt      DateTime?
+}
+
+model Webhook {
+  id             String       @id @default(cuid())
+  url            String
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+}
+
+model OrganizationAuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action         String
+  targetType     String
+  targetId       String?
+  details        String?      @db.Text
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime     @default(now())
+}
+
+model CmsRedirect {
+  id         String   @id @default(cuid())
+  sourcePath String   @unique
+  targetPath String
+  statusCode Int      @default(301) // 301 | 302 | 410
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model CmsCompetitor {
+  id                    String   @id @default(cuid())
+  domain                String   @unique
+  name                  String
+  estimatedContentDepth Int      @default(0)
+  topicCoverage         Float    @default(0.0)
+  freshnessScore        Float    @default(0.0)
+  pagePerformance       Float    @default(0.0)
+  searchIntentCoverage  Float    @default(0.0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model CmsSearchQuery {
+  id          String   @id @default(cuid())
+  query       String   @unique
+  count       Int      @default(1)
+  clicks      Int      @default(0)
+  impressions Int      @default(0)
+  ctr         Float    @default(0.0)
+  updatedAt   DateTime @updatedAt
 }

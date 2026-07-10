@@ -33,6 +33,7 @@ import {
   Tooltip as ChartTooltip, 
   ResponsiveContainer 
 } from 'recharts';
+import NotificationCenter from './NotificationCenter';
 
 interface DashboardClientProps {
   initialData: {
@@ -146,6 +147,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          <NotificationCenter />
+
           <Button 
             variant="secondary"
             onClick={() => setShowConfig(!showConfig)}

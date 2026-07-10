@@ -102,7 +102,7 @@ export default function UserDropdown({ sessionUser }: UserDropdownProps) {
 
             {/* Profile Action Link */}
             <button
-              onClick={() => { alert('Profile configuration is under active development.'); setIsOpen(false); }}
+              onClick={() => { router.push('/profile'); setIsOpen(false); }}
               className="flex items-center gap-2.5 px-3 py-2 text-[12px] text-stone hover:text-warm-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer text-left focus:outline-none"
             >
               <User className="w-4 h-4" />
@@ -120,7 +120,7 @@ export default function UserDropdown({ sessionUser }: UserDropdownProps) {
 
             {/* Settings Action Link */}
             <button
-              onClick={() => { alert('Settings configurations are under development.'); setIsOpen(false); }}
+              onClick={() => { router.push(isAdmin ? '/admin/settings' : '/profile'); setIsOpen(false); }}
               className="flex items-center gap-2.5 px-3 py-2 text-[12px] text-stone hover:text-warm-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer text-left focus:outline-none"
             >
               <Settings className="w-4 h-4" />

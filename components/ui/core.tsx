@@ -25,6 +25,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         whileTap={{ scale: 0.98 }}
         className={`${baseStyle} ${variants[variant]} ${className}`}
+        suppressHydrationWarning
         {...(props as any)}
       >
         {children}
@@ -54,6 +55,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             className={`w-full px-3 py-2 text-[13px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none transition-all duration-200 
               focus:border-white/20 focus:bg-charcoal/40 focus:ring-1 focus:ring-white/10
               placeholder:text-stone/60 ${className}`}
+            suppressHydrationWarning
             {...props}
           />
           <div className="absolute inset-0 -z-10 rounded-lg bg-white/5 opacity-0 group-focus-within:opacity-100 blur transition-opacity duration-200" />

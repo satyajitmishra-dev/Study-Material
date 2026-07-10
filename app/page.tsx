@@ -2,14 +2,26 @@ import React from 'react';
 import { publicDb } from '@/lib/database/publicDb';
 import { auth } from '@/auth';
 import HomeClient from '@/components/public/HomeClient';
+import { Metadata } from 'next';
+import { getMetadata } from '@/lib/seo/MetadataEngine';
+
+export async function generateMetadata(): Promise<Metadata> {
+  return getMetadata({
+    title: 'Home',
+    description: 'An immersive desktop-grade workspace engineered for developers to master modern frontend, backend, and AI stacks.',
+    path: '/'
+  });
+}
 
 export const dynamic = 'force-dynamic';
+
+import { SchemaMarkup } from '@/lib/seo/SchemaMarkup';
 
 export default async function PublishingHomePage() {
   const session = await auth();
 
   // Query Settings
-  const rawLayout = await publicDb.getSetting('homepage_layout', JSON.stringify(['hero', 'trending', 'categories', 'latest', 'newsletter']));
+  const rawLayout = await publicDb.getSetting('homepage_layout', JSON.stringify(['hero', 'trending', 'categories', 'series', 'latest', 'newsletter']));
   const layout: string[] = JSON.parse(rawLayout);
 
   // Fetch lists
@@ -19,13 +31,26 @@ export default async function PublishingHomePage() {
   // Fetch initial posts (published)
   const { items: initialPosts } = await publicDb.getPublicPosts({ limit: 10 });
 
+  const orgSchema = SchemaMarkup.organization();
+  const webSchema = SchemaMarkup.website();
+
   return (
-    <HomeClient 
-      initialPosts={initialPosts}
-      categories={categories}
-      tags={tags}
-      layout={layout}
-      sessionUser={session?.user || null}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webSchema) }}
+      />
+      <HomeClient 
+        initialPosts={initialPosts}
+        categories={categories}
+        tags={tags}
+        layout={layout}
+        sessionUser={session?.user || null}
+      />
+    </>
   );
 }

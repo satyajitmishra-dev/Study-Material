@@ -1,14 +1,17 @@
 import React from 'react';
 import { cmsDb } from '@/lib/database/cmsDb';
 import DashboardClient from '@/components/admin/DashboardClient';
+import { getActiveProject } from '@/lib/actions/projectContext';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  // Query initial CMS metrics on the server
-  const { items: projects, total: totalProjects } = await cmsDb.getProjects({ limit: 1000 });
-  const { total: mediaCount } = await cmsDb.getMedia({ limit: 1 });
-  const auditLogs = await cmsDb.getAuditLogs(undefined, 25);
+  const { projectId } = await getActiveProject();
+
+  // Query initial CMS metrics on the server scoped to project container
+  const { items: projects, total: totalProjects } = await cmsDb.getProjects({ limit: 1000, projectId });
+  const { total: mediaCount } = await cmsDb.getMedia({ limit: 1, projectId });
+  const auditLogs = await cmsDb.getAuditLogs(undefined, 25, projectId);
 
   const publishedCount = projects.filter(p => p.status === 'published').length;
   const draftsCount = projects.filter(p => p.status === 'draft').length;

@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import AdminSidebar from '@/components/admin/AdminSidebar';
+import { getActiveProject } from '@/lib/actions/projectContext';
 
 export default async function AdminLayout({
   children,
@@ -28,9 +29,11 @@ export default async function AdminLayout({
     redirect('/unauthorized?reason=admin-only');
   }
 
+  const activeProject = await getActiveProject();
+
   return (
     <div className="w-full flex flex-col md:flex-row gap-6 min-h-[calc(100vh-2rem)] items-stretch">
-      <AdminSidebar />
+      <AdminSidebar activeProject={activeProject} />
       <div className="flex-1 min-w-0 h-[calc(100vh-2rem)] overflow-y-auto pr-2 custom-scrollbar pb-24 md:pb-0">
         {children}
       </div>

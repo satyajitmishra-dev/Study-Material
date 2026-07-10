@@ -6,7 +6,7 @@ import { SessionProvider } from 'next-auth/react';
 export const metadata: Metadata = {
   title: 'StudyMaterial — The Future of Learning for Developers',
   description: 'An immersive desktop-grade workspace engineered for developers to master modern frontend, backend, and AI stacks.',
-  metadataBase: new URL('https://studymaterial.dev'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://studymaterial.dev'),
   openGraph: {
     title: 'StudyMaterial — The Future of Learning for Developers',
     description: 'An immersive desktop-grade workspace engineered for developers to master modern frontend, backend, and AI stacks.',
@@ -24,7 +24,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>" />
       </head>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
         <SessionProvider>
           <ClientShell>{children}</ClientShell>
         </SessionProvider>

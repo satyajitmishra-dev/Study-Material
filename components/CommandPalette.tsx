@@ -96,7 +96,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       title: `View Project: ${p.name}`,
       category: 'Projects',
       icon: Code2,
-      action: () => { router.push(`/projects/${p.id}`); onClose(); }
+      action: () => { router.push(`/projects/${(p as any).slug || p.id}`); onClose(); }
     });
   });
 

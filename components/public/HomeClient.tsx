@@ -156,14 +156,13 @@ export default function HomeClient({
                   </div>
                 </div>
 
-                <div className="pt-4 flex items-center gap-4">
-                  <Link href={`/posts/${featuredPost.slug}`}>
-                    <Button variant="primary">
-                      <span>Read Article</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
+                  <Link 
+                    href={`/posts/${featuredPost.slug}`}
+                    className="relative px-4 py-2 text-[13px] font-medium tracking-wide rounded-lg flex items-center justify-center gap-2 transition-all duration-150 outline-none select-none active:scale-[0.98] bg-warm-white text-onyx hover:bg-mist border border-warm-white shadow-sm font-sans"
+                  >
+                    <span>Read Article</span>
+                    <ArrowRight className="w-4 h-4" />
                   </Link>
-                </div>
               </div>
 
               {featuredPost.coverImage && (
@@ -292,7 +291,7 @@ export default function HomeClient({
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-[10px] font-mono text-stone">
                             <span className="text-accent-violet font-semibold uppercase">{post.categoryRef?.name || 'General'}</span>
-                            <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
+                            <span suppressHydrationWarning>{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ''}</span>
                           </div>
                           <h3 className="text-[16px] font-bold text-warm-white group-hover:text-accent-violet transition-colors leading-snug">
                             <Link href={`/posts/${post.slug}`}>{post.title}</Link>
@@ -422,6 +421,7 @@ export default function HomeClient({
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="Enter email address..."
                         className="flex-1 bg-charcoal/30 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-warm-white outline-none focus:border-white/10 placeholder:text-stone/50"
+                        suppressHydrationWarning
                       />
                       <select 
                         value={digestType}

@@ -39,7 +39,7 @@ async function runTestSuite() {
       seoDescription: 'Optimized description containing metadata fields details.',
       seoKeywords: 'test, validation',
       ogImage: '',
-      canonical: 'https://studymaterial.dev/test',
+      canonical: 'https://studymaterial.utool.in/test',
       robots: 'index, follow',
       schemaJson: '{"@context": "https://schema.org"}',
       seoScore: 90,
@@ -55,11 +55,12 @@ async function runTestSuite() {
       prevProjectId: null,
       prerequisiteId: null,
       categoryId: null,
+      projectId: null,
       password: null,
     });
 
     assert(!!newProject.id, 'Database created project and generated unique ID');
-    
+
     const retrieved = await cmsDb.getProjectById(newProject.id);
     assert(retrieved?.title === 'Testing Suite Integration', 'Database retrieved created project correctly');
 
@@ -137,8 +138,8 @@ async function runTestSuite() {
       seoTitle: 'Optimized Title Guidelines for Modern Production Apps',
       seoDescription: 'Comprehensive step-by-step developer tutorial detailing optimized guidelines, layouts, and spring configurations in Next.js applications.',
       seoKeywords: 'guidelines, optimized',
-      canonical: 'https://studymaterial.dev/optimized-title-guidelines',
-      ogImage: 'https://studymaterial.dev/og.jpg',
+      canonical: 'https://studymaterial.utool.in/optimized-title-guidelines',
+      ogImage: 'https://studymaterial.utool.in/og.jpg',
       schemaJson: '{"@context": "https://schema.org"}',
     });
 

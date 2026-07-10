@@ -255,7 +255,7 @@ export default function PostsClient({
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-mono text-stone">
                       <span className="text-accent-cyan uppercase font-semibold">{post.categoryRef?.name || 'General'}</span>
-                      <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
+                      <span suppressHydrationWarning>{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ''}</span>
                     </div>
                     <h3 className="text-[15px] font-bold text-warm-white group-hover:text-accent-cyan transition-colors leading-snug">
                       <Link href={`/posts/${post.slug}`}>{post.title}</Link>

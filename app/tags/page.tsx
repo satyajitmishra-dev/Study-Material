@@ -2,6 +2,16 @@ import React from 'react';
 import { publicDb } from '@/lib/database/publicDb';
 import Link from 'next/link';
 import { Tag } from 'lucide-react';
+import { Metadata } from 'next';
+import { getMetadata } from '@/lib/seo/MetadataEngine';
+
+export async function generateMetadata(): Promise<Metadata> {
+  return getMetadata({
+    title: 'Tags Taxonomy Directory',
+    description: 'Explore technical subtopics, frameworks, and developer tools using taxonomy tags.',
+    path: '/tags'
+  });
+}
 
 export const dynamic = 'force-dynamic';
 
