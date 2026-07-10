@@ -6,7 +6,6 @@ import { Folder, FolderPlus, Trash2, ArrowRight, Bookmark, SlidersHorizontal, Pl
 import Link from 'next/link';
 import { Card, Button } from '@/components/ui/core';
 import { bookmarkPostAction, manageCollectionAction } from '@/lib/actions/public';
-import { publicDb } from '@/lib/database/publicDb';
 
 export default function BookmarksHubPage() {
   const [visitorId, setVisitorId] = useState('');
@@ -36,13 +35,17 @@ export default function BookmarksHubPage() {
     setVisitorId(vid);
 
     // Mock load bookmarked posts (in sandbox, retrieve all available posts)
-    publicDb.getPublicPosts({ limit: 10 }).then(res => {
-      // In sandbox, treat first 2 posts as bookmarked for immediate visual representation
-      setSavedPosts(res.items.slice(0, 2).map(p => ({
-        ...p,
-        collectionId: 'all'
-      })));
-    });
+    fetch('/api/v1/posts?limit=10')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          // In sandbox, treat first 2 posts as bookmarked for immediate visual representation
+          setSavedPosts(res.data.slice(0, 2).map((p: any) => ({
+            ...p,
+            collectionId: 'all'
+          })));
+        }
+      });
   }, []);
 
   const handleCreateFolder = async (e: React.FormEvent) => {

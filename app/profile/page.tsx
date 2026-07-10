@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, Button } from '@/components/ui/core';
-import { publicDb } from '@/lib/database/publicDb';
 
 export default function ProfileDashboardPage() {
   const [visitorId, setVisitorId] = useState('');
@@ -41,22 +40,26 @@ export default function ProfileDashboardPage() {
     setVisitorId(vid);
 
     // Mock load profile information (in sandbox, retrieve published projects)
-    publicDb.getPublicPosts({ limit: 5 }).then(res => {
-      setRecentHistory(res.items.slice(0, 3));
-      setLikedPosts(res.items.slice(0, 1));
-      
-      // Seed mock notes
-      setUserNotes([
-        {
-          id: 'note_1',
-          postTitle: 'Introducing Partial Prerendering',
-          postSlug: 'introducing-partial-prerendering',
-          highlightText: 'Partial Prerendering (PPR) is a layout-first prerendering model...',
-          noteContent: 'Crucial for dynamic dashboard widgets in Next.js 16. Implement <Suspense> boundaries carefully.',
-          updatedAt: new Date()
+    fetch('/api/v1/posts?limit=5')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          setRecentHistory(res.data.slice(0, 3));
+          setLikedPosts(res.data.slice(0, 1));
         }
-      ]);
-    });
+      });
+      
+    // Seed mock notes
+    setUserNotes([
+      {
+        id: 'note_1',
+        postTitle: 'Introducing Partial Prerendering',
+        postSlug: 'introducing-partial-prerendering',
+        highlightText: 'Partial Prerendering (PPR) is a layout-first prerendering model...',
+        noteContent: 'Crucial for dynamic dashboard widgets in Next.js 16. Implement <Suspense> boundaries carefully.',
+        updatedAt: new Date()
+      }
+    ]);
   }, []);
 
   return (

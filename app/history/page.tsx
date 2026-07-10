@@ -5,20 +5,23 @@ import { motion } from 'framer-motion';
 import { Clock, Trash2, ArrowRight, BookOpen, Layers } from 'lucide-react';
 import Link from 'next/link';
 import { Card, Button } from '@/components/ui/core';
-import { publicDb } from '@/lib/database/publicDb';
 
 export default function ReadingHistoryPage() {
   const [historyList, setHistoryList] = useState<any[]>([]);
 
   useEffect(() => {
     // Retrieve sample published posts as reading history
-    publicDb.getPublicPosts({ limit: 5 }).then(res => {
-      setHistoryList(res.items.map(p => ({
-        ...p,
-        progress: 85, // Mock scroll progress
-        lastViewedAt: new Date(Date.now() - 3600000 * 2)
-      })));
-    });
+    fetch('/api/v1/posts?limit=5')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          setHistoryList(res.data.map((p: any) => ({
+            ...p,
+            progress: 85, // Mock scroll progress
+            lastViewedAt: new Date(Date.now() - 3600000 * 2)
+          })));
+        }
+      });
   }, []);
 
   const handleClearHistory = () => {

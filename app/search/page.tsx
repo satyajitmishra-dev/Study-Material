@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, CornerDownLeft, Sparkles, FolderDot, History, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
-import { publicDb } from '@/lib/database/publicDb';
 import { Card } from '@/components/ui/core';
 
 export default function SearchPage() {
@@ -29,9 +28,13 @@ export default function SearchPage() {
     }
 
     // Load initial published posts list
-    publicDb.getPublicPosts({ limit: 100 }).then(res => {
-      setAllPosts(res.items);
-    });
+    fetch('/api/v1/posts?limit=100')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          setAllPosts(res.data);
+        }
+      });
   }, []);
 
   // Debouncing query
