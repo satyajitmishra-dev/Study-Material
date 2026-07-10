@@ -622,3 +622,51 @@ export async function rollbackProjectVersionAction(projectId: string, versionId:
     return { success: false, error: err.message || 'SERVER_ERROR' };
   }
 }
+
+export async function createCategoryAction(name: string, description?: string) {
+  try {
+    const actor = await checkAuth(['admin', 'editor']);
+    const { projectId } = await getActiveProject();
+
+    if (!name || name.trim().length < 2) {
+      return { success: false, error: 'Category name must be at least 2 characters.' };
+    }
+
+    const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    if (!slug) {
+      return { success: false, error: 'Invalid category name.' };
+    }
+
+    const prisma = getPrisma();
+    if (prisma) {
+      const existing = await prisma.category.findUnique({ where: { slug } });
+      if (existing) {
+        return { success: false, error: 'Category already exists.' };
+      }
+
+      const cat = await prisma.category.create({
+        data: {
+          name: name.trim(),
+          slug,
+          description: description?.trim() || null,
+          projectId,
+        }
+      });
+
+      revalidatePath('/categories');
+      return { success: true, category: cat };
+    } else {
+      const { publicDb } = await import('@/lib/database/publicDb');
+      const existing = await publicDb.getCategoryBySlug(slug);
+      if (existing) {
+        return { success: false, error: 'Category already exists.' };
+      }
+      const cat = await publicDb.createCategory(name.trim(), slug, description?.trim());
+      revalidatePath('/categories');
+      return { success: true, category: cat };
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to create category.' };
+  }
+}
+

@@ -26,13 +26,24 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button, Card, Input } from '@/components/ui/core';
 import { CmsProjectSchema, CmsProjectInput } from '@/lib/validation/cms';
-import { saveProjectAction, generateAiContentAction } from '@/lib/actions/cms';
+import { saveProjectAction, generateAiContentAction, createCategoryAction } from '@/lib/actions/cms';
 import TipTapEditor from './TipTapEditor';
+import ImageUploadField from './ImageUploadField';
 import { SeoEngine, SeoAuditResult } from '@/lib/seo/SeoEngine';
 
 interface ProjectEditorWizardProps {
   project: any | null; // CmsProject or null
+  categories?: any[]; // Dynamic categories from database
 }
+
+const DEFAULT_CATEGORIES = [
+  { id: '1', name: 'React', slug: 'react' },
+  { id: '2', name: 'TypeScript', slug: 'typescript' },
+  { id: '3', name: 'AI', slug: 'ai' },
+  { id: '4', name: 'Backend', slug: 'backend' },
+  { id: '5', name: 'CSS', slug: 'css' },
+  { id: '6', name: 'Database', slug: 'database' }
+];
 
 const STEPS = [
   { id: 'basic', name: '1. Basic Info' },
@@ -42,9 +53,55 @@ const STEPS = [
   { id: 'publish', name: '5. Publish Config' },
 ];
 
-export default function ProjectEditorWizard({ project }: ProjectEditorWizardProps) {
+export default function ProjectEditorWizard({ project, categories = [] }: ProjectEditorWizardProps) {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState<string>('basic');
+
+  // Dynamic Category state management
+  const initialCategories = useMemo(() => {
+    const list = [...categories];
+    // Add default ones if they are not already in the database list
+    DEFAULT_CATEGORIES.forEach(d => {
+      if (!list.some(c => c.name.toLowerCase() === d.name.toLowerCase() || c.slug === d.slug)) {
+        list.push(d);
+      }
+    });
+    return list;
+  }, [categories]);
+
+  const [categoriesList, setCategoriesList] = useState(initialCategories);
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryDesc, setNewCategoryDesc] = useState('');
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+
+  useEffect(() => {
+    setCategoriesList(initialCategories);
+  }, [initialCategories]);
+
+  const handleAddNewCategory = async () => {
+    if (!newCategoryName.trim()) {
+      alert('Please enter a category name.');
+      return;
+    }
+    setIsAddingCategory(true);
+    try {
+      const res = await createCategoryAction(newCategoryName, newCategoryDesc);
+      if (res.success && res.category) {
+        setCategoriesList(prev => [...prev, res.category]);
+        setValue('category', res.category.name, { shouldDirty: true, shouldValidate: true });
+        setNewCategoryName('');
+        setNewCategoryDesc('');
+        setShowNewCategoryInput(false);
+      } else {
+        alert(res.error || 'Failed to create category.');
+      }
+    } catch (err) {
+      alert('An error occurred while creating category.');
+    } finally {
+      setIsAddingCategory(false);
+    }
+  };
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiOutput, setAiOutput] = useState('');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -372,13 +429,28 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="text-[11px] font-semibold text-stone uppercase tracking-wider block mb-1.5">Category</label>
-                <select {...register('category')} className="w-full bg-charcoal/20 border border-white/5 rounded-lg text-[13px] px-3 py-2 text-warm-white outline-none focus:border-white/20">
-                  <option value="React">React</option>
-                  <option value="TypeScript">TypeScript</option>
-                  <option value="AI">AI</option>
-                  <option value="Backend">Backend</option>
-                  <option value="CSS">CSS</option>
-                  <option value="Database">Database</option>
+                <select
+                  {...register('category')}
+                  className="w-full bg-charcoal/20 border border-white/5 rounded-lg text-[13px] px-3 py-2 text-warm-white outline-none focus:border-white/20"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '__new__') {
+                      setShowNewCategoryInput(true);
+                      const prevVal = watch('category') || categoriesList[0]?.name || 'React';
+                      setValue('category', prevVal);
+                    } else {
+                      setValue('category', val, { shouldDirty: true, shouldValidate: true });
+                    }
+                  }}
+                >
+                  {categoriesList.map((cat) => (
+                    <option key={cat.id || cat.slug} value={cat.name} className="bg-[#1c1c1e] text-warm-white">
+                      {cat.name}
+                    </option>
+                  ))}
+                  <option value="__new__" className="bg-[#1c1c1e] text-accent-cyan font-semibold">
+                    + Add New Category...
+                  </option>
                 </select>
               </div>
 
@@ -401,13 +473,69 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
                 </select>
               </div>
             </div>
+
+            {showNewCategoryInput && (
+              <div className="p-4 bg-white/5 border border-white/5 rounded-xl space-y-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <h4 className="text-[12px] font-bold text-accent-cyan uppercase tracking-wider font-mono">Create New Project Category</h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Category Name"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="e.g. Next.js, Docker, Web3"
+                  />
+                  <Input
+                    label="Description (Optional)"
+                    value={newCategoryDesc}
+                    onChange={(e) => setNewCategoryDesc(e.target.value)}
+                    placeholder="Provide a brief description of the topic..."
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-8 text-[11px] px-3.5"
+                    onClick={() => {
+                      setShowNewCategoryInput(false);
+                      setNewCategoryName('');
+                      setNewCategoryDesc('');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-8 text-[11px] px-3.5 bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20 hover:bg-accent-cyan/20 font-semibold"
+                    onClick={handleAddNewCategory}
+                    disabled={isAddingCategory}
+                  >
+                    {isAddingCategory ? 'Creating...' : 'Create Category'}
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
 
-          <Card className="lg:col-span-4 p-5 space-y-4">
+          <Card className="lg:col-span-4 p-5 space-y-5">
             <h3 className="text-[13px] font-bold text-warm-white uppercase tracking-wider">Asset Attachments</h3>
-            <Input label="Cover Image URL" {...register('coverImage')} placeholder="https://unsplash.com/..." />
-            <Input label="Thumbnail URL" {...register('thumbnail')} placeholder="https://unsplash.com/..." />
-            <p className="text-[11px] text-stone">You can link directly to unsplash/external photos here, or use the Media Library in Phase 6 to fetch cropped assets.</p>
+            <ImageUploadField
+              label="Cover Image"
+              value={watch('coverImage') || ''}
+              onChange={(url) => setValue('coverImage', url, { shouldDirty: true })}
+              field="coverImage"
+              aspectRatio="16/9"
+            />
+            <ImageUploadField
+              label="Thumbnail"
+              value={watch('thumbnail') || ''}
+              onChange={(url) => setValue('thumbnail', url, { shouldDirty: true })}
+              field="thumbnail"
+              aspectRatio="1/1"
+            />
           </Card>
         </motion.div>
       )}
@@ -502,12 +630,153 @@ export default function ProjectEditorWizard({ project }: ProjectEditorWizardProp
 
             <div className="space-y-4">
               <Input label="Meta Title" {...register('seoTitle')} placeholder="Optimized SERP Title (ideal: 50-60 chars)" />
+              {formValues.seoTitle && (
+                <div className="flex items-center gap-2 -mt-2">
+                  <div className={`h-1 flex-1 rounded-full ${(formValues.seoTitle?.length || 0) <= 60 ? 'bg-accent-emerald/30' : 'bg-accent-pink/30'}`}>
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${(formValues.seoTitle?.length || 0) <= 60 ? 'bg-accent-emerald' : 'bg-accent-pink'}`}
+                      style={{ width: `${Math.min(100, ((formValues.seoTitle?.length || 0) / 60) * 100)}%` }}
+                    />
+                  </div>
+                  <span className={`text-[9px] font-mono ${(formValues.seoTitle?.length || 0) <= 60 ? 'text-accent-emerald' : 'text-accent-pink'}`}>
+                    {formValues.seoTitle?.length || 0}/60
+                  </span>
+                </div>
+              )}
+
               <Input label="Meta Description" {...register('seoDescription')} placeholder="SERP Snippet Description (ideal: 120-160 chars)" />
-              <Input label="Focus Keywords (Comma separated)" {...register('seoKeywords')} placeholder="e.g. Next.js 16, React Compiler" />
+              {formValues.seoDescription && (
+                <div className="flex items-center gap-2 -mt-2">
+                  <div className={`h-1 flex-1 rounded-full ${(formValues.seoDescription?.length || 0) <= 160 ? 'bg-accent-emerald/30' : 'bg-accent-pink/30'}`}>
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${(formValues.seoDescription?.length || 0) <= 160 ? 'bg-accent-emerald' : 'bg-accent-pink'}`}
+                      style={{ width: `${Math.min(100, ((formValues.seoDescription?.length || 0) / 160) * 100)}%` }}
+                    />
+                  </div>
+                  <span className={`text-[9px] font-mono ${(formValues.seoDescription?.length || 0) <= 160 ? 'text-accent-emerald' : 'text-accent-pink'}`}>
+                    {formValues.seoDescription?.length || 0}/160
+                  </span>
+                </div>
+              )}
+
+              {/* Smart Keywords with auto-comma */}
+              <div className="flex flex-col gap-1.5 w-full">
+                <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">Focus Keywords (Comma Separated)</label>
+                <input
+                  {...register('seoKeywords')}
+                  placeholder="e.g. Next.js 16, React Compiler, server components"
+                  className="w-full px-3 py-2 text-[13px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none transition-all duration-200 focus:border-white/20 focus:bg-charcoal/40 focus:ring-1 focus:ring-white/10 placeholder:text-stone/60"
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text/plain').trim();
+                    const current = (formValues.seoKeywords || '').trim();
+                    // Normalize: split by newlines, tabs, semicolons, pipes, or commas → rejoin with comma+space
+                    const keywords = pasted
+                      .split(/[\n\r\t;|,]+/)
+                      .map((k: string) => k.trim())
+                      .filter(Boolean);
+                    const normalized = keywords.join(', ');
+                    const newValue = current
+                      ? `${current.replace(/,\s*$/, '')}, ${normalized}`
+                      : normalized;
+                    setValue('seoKeywords', newValue, { shouldDirty: true });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = (formValues.seoKeywords || '').trim();
+                      if (val && !val.endsWith(',')) {
+                        setValue('seoKeywords', val + ', ', { shouldDirty: true });
+                      }
+                    }
+                  }}
+                />
+                {formValues.seoKeywords && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {formValues.seoKeywords.split(',').map((kw: string, idx: number) => {
+                      const trimmed = kw.trim();
+                      if (!trimmed) return null;
+                      return (
+                        <span key={idx} className="px-2 py-0.5 rounded-md bg-accent-cyan/10 border border-accent-cyan/15 text-[10px] text-accent-cyan font-medium">
+                          {trimmed}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="text-[10px] text-stone/50 mt-0.5">Paste keywords from any format — they auto-normalize to comma-separated. Press Enter to add a separator.</p>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="Canonical URL" {...register('canonical')} placeholder="https://yoursite.com/canonical-slug" />
-                <Input label="Robots Rules" {...register('robots')} placeholder="index, follow" />
+                {/* Smart Canonical URL */}
+                <div className="flex flex-col gap-1.5 w-full">
+                  <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">Canonical URL</label>
+                  <input
+                    {...register('canonical')}
+                    placeholder="Auto-generated from slug"
+                    className="w-full px-3 py-2 text-[13px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none transition-all duration-200 focus:border-white/20 focus:bg-charcoal/40 focus:ring-1 focus:ring-white/10 placeholder:text-stone/60"
+                  />
+                  {!formValues.canonical && formValues.slug && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const baseUrl = typeof window !== 'undefined'
+                          ? window.location.origin
+                          : 'https://studymaterial.utool.in';
+                        setValue('canonical', `${baseUrl}/posts/${formValues.slug}`, { shouldDirty: true });
+                      }}
+                      className="flex items-center gap-1.5 text-[10px] text-accent-cyan hover:text-accent-cyan/80 cursor-pointer transition-colors w-fit"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Auto-generate: /posts/{formValues.slug}</span>
+                    </button>
+                  )}
+                  {formValues.canonical && (
+                    <span className="text-[10px] text-accent-emerald font-mono truncate">✓ {formValues.canonical}</span>
+                  )}
+                </div>
+
+                {/* Robots Rules with Template Selector */}
+                <div className="flex flex-col gap-1.5 w-full">
+                  <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">Robots Rules</label>
+                  <input
+                    {...register('robots')}
+                    placeholder="index, follow"
+                    className="w-full px-3 py-2 text-[13px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none transition-all duration-200 focus:border-white/20 focus:bg-charcoal/40 focus:ring-1 focus:ring-white/10 placeholder:text-stone/60"
+                  />
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {[
+                      { value: 'index, follow', label: 'Index & Follow', hint: 'Default — crawl and follow links', color: 'text-accent-emerald border-accent-emerald/20 bg-accent-emerald/5' },
+                      { value: 'noindex, follow', label: 'No Index', hint: 'Hide from search, follow links', color: 'text-accent-orange border-accent-orange/20 bg-accent-orange/5' },
+                      { value: 'index, nofollow', label: 'No Follow', hint: 'Index page but don\'t follow links', color: 'text-accent-cyan border-accent-cyan/20 bg-accent-cyan/5' },
+                      { value: 'noindex, nofollow', label: 'Block All', hint: 'Hide completely from search engines', color: 'text-accent-pink border-accent-pink/20 bg-accent-pink/5' },
+                      { value: 'noindex, nofollow, noarchive', label: 'Block + No Cache', hint: 'Block crawling and cached copies', color: 'text-accent-pink border-accent-pink/20 bg-accent-pink/5' },
+                    ].map(template => (
+                      <button
+                        key={template.value}
+                        type="button"
+                        title={template.hint}
+                        onClick={() => setValue('robots', template.value, { shouldDirty: true })}
+                        className={`px-1.5 py-0.5 rounded border text-[9px] font-medium cursor-pointer transition-all hover:opacity-80 ${
+                          formValues.robots === template.value
+                            ? template.color + ' font-bold'
+                            : 'text-stone/60 border-white/5 bg-transparent hover:border-white/10'
+                        }`}
+                      >
+                        {template.label}
+                      </button>
+                    ))}
+                  </div>
+                  {formValues.robots && (
+                    <p className="text-[9px] text-stone/40 mt-0.5 font-mono">
+                      {formValues.robots === 'index, follow' && '✓ Search engines will crawl this page and follow all outbound links.'}
+                      {formValues.robots === 'noindex, follow' && '⚠ Page hidden from search results, but links will be followed.'}
+                      {formValues.robots === 'index, nofollow' && '⚠ Page indexed, but outbound links will NOT pass authority.'}
+                      {formValues.robots === 'noindex, nofollow' && '🚫 Page is fully hidden — not indexed and links are not followed.'}
+                      {formValues.robots === 'noindex, nofollow, noarchive' && '🚫 Fully blocked — not indexed, not followed, and no cached copy stored.'}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5 w-full">

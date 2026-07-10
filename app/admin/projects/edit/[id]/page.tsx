@@ -1,6 +1,7 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
 import { cmsDb } from '@/lib/database/cmsDb';
+import { publicDb } from '@/lib/database/publicDb';
 import ProjectEditorWizard from '@/components/admin/ProjectEditorWizard';
 
 interface PageProps {
@@ -29,5 +30,8 @@ export default async function EditProjectPage({ params }: PageProps) {
     scheduledAt: project.scheduledAt ? project.scheduledAt.toISOString() : null,
   };
 
-  return <ProjectEditorWizard project={serializedProject} />;
+  const categories = await publicDb.getCategories();
+
+  return <ProjectEditorWizard project={serializedProject} categories={categories} />;
 }
+
