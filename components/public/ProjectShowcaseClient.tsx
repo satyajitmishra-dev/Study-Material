@@ -24,7 +24,11 @@ import {
   ChevronRight,
   Terminal,
   ExternalLink,
-  ThumbsUp
+  ThumbsUp,
+  Users,
+  Tag,
+  History,
+  Share2
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, Button, Tabs } from '@/components/ui/core';
@@ -185,15 +189,29 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
 
         <div className="flex-1 space-y-3 mt-4 md:mt-0 text-center md:text-left">
           <div>
-            <div className="flex flex-col md:flex-row md:items-center gap-3 justify-center md:justify-start">
+            <div className="flex flex-col md:flex-row md:items-center gap-2.5 justify-center md:justify-start flex-wrap">
               <h1 className="text-3xl font-extrabold text-warm-white tracking-tight">{project.name}</h1>
               <span className="w-fit self-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-accent-violet/15 border border-accent-violet/20 text-accent-violet uppercase tracking-wider">
                 {project.status || 'Active'}
               </span>
+              {project.category && (
+                <span className="w-fit self-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-accent-cyan/15 border border-accent-cyan/30 text-accent-cyan uppercase tracking-wider">
+                  {project.category}
+                </span>
+              )}
             </div>
-            <p className="text-[13px] text-stone mt-1 max-w-xl font-light">
+            <p className="text-[13px] text-stone mt-1.5 max-w-xl font-light">
               {project.description || 'Showcase and software repository analytics.'}
             </p>
+            {project.tagsList && project.tagsList.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                {project.tagsList.map((tag: string, i: number) => (
+                  <span key={i} className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-stone border border-white/5">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-1">
@@ -212,14 +230,26 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
             {project.githubUrl && (
               <a href={project.githubUrl} target="_blank" rel="noreferrer" className="text-[12px] text-stone hover:text-warm-white hover:underline flex items-center gap-1">
                 <Github className="w-3.5 h-3.5" />
-                <span>Source Repository</span>
+                <span>GitHub</span>
+              </a>
+            )}
+            {project.gitlabUrl && (
+              <a href={project.gitlabUrl} target="_blank" rel="noreferrer" className="text-[12px] text-stone hover:text-warm-white hover:underline flex items-center gap-1">
+                <Code2 className="w-3.5 h-3.5" />
+                <span>GitLab</span>
+              </a>
+            )}
+            {project.npmPackageUrl && (
+              <a href={project.npmPackageUrl} target="_blank" rel="noreferrer" className="text-[12px] text-accent-emerald hover:underline flex items-center gap-1">
+                <Terminal className="w-3.5 h-3.5" />
+                <span>NPM Package</span>
               </a>
             )}
           </div>
         </div>
 
         {/* Showcase actions */}
-        <div className="shrink-0 flex items-center gap-3 w-full md:w-auto justify-center">
+        <div className="shrink-0 flex items-center gap-2.5 w-full md:w-auto justify-center">
           <Button 
             variant={isFollowing ? 'secondary' : 'accent'} 
             onClick={handleFollowProject}
@@ -229,11 +259,21 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
             <span className="text-[10px] font-mono border border-white/10 px-1 rounded-sm bg-white/5 ml-1">{followersCount}</span>
           </Button>
 
-          <button onClick={handleLike} className={`p-2 rounded-lg border transition-all ${isLiked ? 'bg-accent-pink/10 border-accent-pink/20 text-accent-pink' : 'border-white/5 text-stone hover:text-accent-pink'}`}>
+          <button onClick={handleLike} title="Like Project" className={`p-2 rounded-lg border transition-all ${isLiked ? 'bg-accent-pink/10 border-accent-pink/20 text-accent-pink' : 'border-white/5 text-stone hover:text-accent-pink'}`}>
             <Heart className="w-4 h-4 fill-current" />
           </button>
-          <button onClick={handleBookmark} className={`p-2 rounded-lg border transition-all ${isBookmarked ? 'bg-accent-cyan/10 border-accent-cyan/20 text-accent-cyan' : 'border-white/5 text-stone hover:text-accent-cyan'}`}>
+          <button onClick={handleBookmark} title="Bookmark Project" className={`p-2 rounded-lg border transition-all ${isBookmarked ? 'bg-accent-cyan/10 border-accent-cyan/20 text-accent-cyan' : 'border-white/5 text-stone hover:text-accent-cyan'}`}>
             <Bookmark className="w-4 h-4 fill-current" />
+          </button>
+          <button 
+            onClick={() => {
+              navigator.clipboard?.writeText(window.location.href);
+              alert('Showcase link copied to clipboard!');
+            }} 
+            title="Share Project" 
+            className="p-2 rounded-lg border border-white/5 text-stone hover:text-warm-white transition-all"
+          >
+            <Share2 className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -273,6 +313,8 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
         options={[
           { id: 'overview', label: 'Readme & Repo', icon: Github },
           { id: 'roadmap', label: 'Milestones Roadmap', icon: CheckCircle2 },
+          { id: 'contributors', label: 'Contributors', icon: Users },
+          { id: 'releases', label: 'Releases & Versions', icon: Tag },
           { id: 'timeline', label: 'Timeline Feed', icon: Clock },
           { id: 'articles', label: 'Articles & Updates', icon: BookOpen },
           { id: 'community', label: 'Discussions', icon: MessageSquare }
@@ -293,8 +335,21 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
               exit={{ opacity: 0, y: -10 }}
               className="grid grid-cols-1 md:grid-cols-3 gap-8"
             >
-              {/* README Render */}
+              {/* README & Screenshots Render */}
               <div className="md:col-span-2 space-y-6">
+                {project.screenshots && project.screenshots.length > 0 && (
+                  <Card className="p-6 space-y-4">
+                    <h3 className="text-md font-bold text-warm-white border-b border-white/5 pb-2">Showcase Screenshots Gallery</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {project.screenshots.map((shot: string, i: number) => (
+                        <div key={i} className="rounded-xl overflow-hidden border border-white/10 bg-charcoal aspect-video group relative">
+                          <img src={shot} alt={`${project.name} screenshot ${i+1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
                 <Card className="p-6 space-y-4">
                   <h3 className="text-md font-bold text-warm-white border-b border-white/5 pb-2">Repository README</h3>
                   <div className="prose prose-invert max-w-none text-[13.5px] leading-relaxed text-stone/90 font-light select-text">
@@ -448,6 +503,104 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'contributors' && (
+            <motion.div
+              key="contributors"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6 max-w-3xl"
+            >
+              <Card className="p-6 space-y-6">
+                <div className="border-b border-white/5 pb-3">
+                  <h3 className="text-md font-bold text-warm-white flex items-center gap-2">
+                    <Users className="w-4 h-4 text-accent-cyan" />
+                    <span>Project Maintainers & Contributors</span>
+                  </h3>
+                  <p className="text-[12.5px] text-stone font-light mt-0.5">
+                    Engineers and community contributors driving the development of {project.name}.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {project.contributors && project.contributors.map((c: any) => (
+                    <div key={c.id} className="p-4 rounded-xl bg-onyx/40 border border-white/5 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-accent-cyan/15 border border-accent-cyan/25 flex items-center justify-center text-accent-cyan font-bold text-sm">
+                          {(c.name || 'D')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <span className="font-bold text-warm-white text-[13.5px] block">{c.name || 'Community Developer'}</span>
+                          <span className="text-[11px] text-stone font-mono block">{c.email ? c.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : 'Active Contributor'}</span>
+                        </div>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider
+                        ${c.role === 'owner' ? 'bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30' :
+                          c.role === 'maintainer' ? 'bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/30' :
+                          'bg-white/5 text-stone border border-white/10'}`}
+                      >
+                        {c.role}
+                      </span>
+                    </div>
+                  ))}
+                  {(!project.contributors || project.contributors.length === 0) && (
+                    <div className="col-span-full py-12 border border-dashed border-white/5 rounded-xl text-center text-[12.5px] text-stone">
+                      No public contributors listed yet.
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
+          {activeTab === 'releases' && (
+            <motion.div
+              key="releases"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6 max-w-3xl"
+            >
+              <Card className="p-6 space-y-6">
+                <div className="border-b border-white/5 pb-3">
+                  <h3 className="text-md font-bold text-warm-white flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-accent-cyan" />
+                    <span>Release History & Changelog</span>
+                  </h3>
+                  <p className="text-[12.5px] text-stone font-light mt-0.5">
+                    Official software releases, upgrade notes, and feature additions for {project.name}.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {project.versions && project.versions.map((v: any) => (
+                    <div key={v.id} className="p-5 rounded-xl bg-onyx/40 border border-white/5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="px-3 py-1 rounded-lg bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30 text-xs font-mono font-bold">
+                            {v.version}
+                          </span>
+                          <h4 className="font-bold text-warm-white text-[14.5px]">{v.changelog}</h4>
+                        </div>
+                        <span className="text-xs text-stone font-mono">{new Date(v.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      {v.releaseNotes && (
+                        <div className="text-[13px] text-stone/90 leading-relaxed font-light pl-3 border-l-2 border-accent-cyan/40 py-1">
+                          {v.releaseNotes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {(!project.versions || project.versions.length === 0) && (
+                    <div className="py-12 border border-dashed border-white/5 rounded-xl text-center text-[12.5px] text-stone">
+                      No release notes published yet.
+                    </div>
+                  )}
+                </div>
+              </Card>
             </motion.div>
           )}
 

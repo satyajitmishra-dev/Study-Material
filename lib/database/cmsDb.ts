@@ -16,7 +16,10 @@ import {
   inMemoryIntegrations,
   inMemoryRoadmaps,
   inMemoryRoadmapTasks,
-  inMemoryTimelines
+  inMemoryTimelines,
+  inMemoryProjectContributors,
+  inMemoryProjectVersions,
+  inMemoryProjectSyncHistories
 } from './publicDb';
 
 // Shared types
@@ -731,26 +734,52 @@ class CmsDatabase {
     return inMemoryProjectContainers;
   }
 
-  async getDeveloperProjectById(id: string): Promise<Project | null> {
+  async getDeveloperProjectById(id: string): Promise<any | null> {
     const prisma = this.prisma;
     if (prisma) {
       return prisma.project.findUnique({
         where: { id },
-        include: { integrations: true }
+        include: {
+          integrations: true,
+          contributors: { orderBy: { createdAt: 'asc' } },
+          syncHistory: { orderBy: { createdAt: 'desc' }, take: 20 },
+          versions: { orderBy: { createdAt: 'desc' } }
+        }
       });
     }
-    return inMemoryProjectContainers.find((p: any) => p.id === id) || null;
+    const p = inMemoryProjectContainers.find((p: any) => p.id === id);
+    if (!p) return null;
+    return {
+      ...p,
+      integrations: inMemoryIntegrations.filter(i => i.projectId === p.id),
+      contributors: inMemoryProjectContributors.filter(c => c.projectId === p.id),
+      syncHistory: inMemoryProjectSyncHistories.filter(s => s.projectId === p.id),
+      versions: inMemoryProjectVersions.filter(v => v.projectId === p.id)
+    };
   }
 
-  async getDeveloperProjectBySlug(slug: string): Promise<Project | null> {
+  async getDeveloperProjectBySlug(slug: string): Promise<any | null> {
     const prisma = this.prisma;
     if (prisma) {
       return prisma.project.findUnique({
         where: { slug },
-        include: { integrations: true }
+        include: {
+          integrations: true,
+          contributors: { orderBy: { createdAt: 'asc' } },
+          syncHistory: { orderBy: { createdAt: 'desc' }, take: 20 },
+          versions: { orderBy: { createdAt: 'desc' } }
+        }
       });
     }
-    return inMemoryProjectContainers.find((p: any) => p.slug === slug) || null;
+    const p = inMemoryProjectContainers.find((p: any) => p.slug === slug);
+    if (!p) return null;
+    return {
+      ...p,
+      integrations: inMemoryIntegrations.filter(i => i.projectId === p.id),
+      contributors: inMemoryProjectContributors.filter(c => c.projectId === p.id),
+      syncHistory: inMemoryProjectSyncHistories.filter(s => s.projectId === p.id),
+      versions: inMemoryProjectVersions.filter(v => v.projectId === p.id)
+    };
   }
 
   async createDeveloperProject(data: any): Promise<Project> {
@@ -1077,6 +1106,141 @@ class CmsDatabase {
       inMemoryIntegrations.push(newIntegration);
       return newIntegration as any;
     }
+  }
+
+  // --- PROJECT CONTRIBUTORS ---
+  async upsertProjectContributor(data: {
+    id?: string;
+    projectId: string;
+    userId?: string | null;
+    email?: string | null;
+    name?: string | null;
+    role?: string;
+  }): Promise<any> {
+    const prisma = this.prisma;
+    const now = new Date();
+    if (prisma) {
+      if (data.id) {
+        return prisma.projectContributor.update({
+          where: { id: data.id },
+          data: {
+            name: data.name,
+            email: data.email,
+            role: data.role || 'contributor',
+            userId: data.userId
+          }
+        });
+      }
+      return prisma.projectContributor.create({
+        data: {
+          projectId: data.projectId,
+          userId: data.userId || null,
+          email: data.email || null,
+          name: data.name || null,
+          role: data.role || 'contributor',
+          createdAt: now
+        }
+      });
+    }
+
+    if (data.id) {
+      const idx = inMemoryProjectContributors.findIndex(c => c.id === data.id);
+      if (idx !== -1) {
+        const updated = {
+          ...inMemoryProjectContributors[idx],
+          name: data.name ?? inMemoryProjectContributors[idx].name,
+          email: data.email ?? inMemoryProjectContributors[idx].email,
+          role: data.role ?? inMemoryProjectContributors[idx].role
+        };
+        inMemoryProjectContributors[idx] = updated;
+        return updated;
+      }
+    }
+    const newC = {
+      id: `pc_${Date.now()}`,
+      projectId: data.projectId,
+      userId: data.userId || null,
+      email: data.email || null,
+      name: data.name || null,
+      role: data.role || 'contributor',
+      createdAt: now
+    };
+    inMemoryProjectContributors.push(newC);
+    return newC;
+  }
+
+  async deleteProjectContributor(id: string): Promise<void> {
+    const prisma = this.prisma;
+    if (prisma) {
+      await prisma.projectContributor.delete({ where: { id } });
+      return;
+    }
+    const idx = inMemoryProjectContributors.findIndex(c => c.id === id);
+    if (idx !== -1) inMemoryProjectContributors.splice(idx, 1);
+  }
+
+  // --- PROJECT VERSIONS ---
+  async createProjectVersion(data: {
+    projectId: string;
+    version: string;
+    changelog: string;
+    releaseNotes?: string;
+  }): Promise<any> {
+    const prisma = this.prisma;
+    const now = new Date();
+    if (prisma) {
+      return prisma.projectVersion.create({
+        data: {
+          projectId: data.projectId,
+          version: data.version,
+          changelog: data.changelog,
+          releaseNotes: data.releaseNotes || null,
+          createdAt: now
+        }
+      });
+    }
+    const newV = {
+      id: `pv_${Date.now()}`,
+      projectId: data.projectId,
+      version: data.version,
+      changelog: data.changelog,
+      releaseNotes: data.releaseNotes || null,
+      createdAt: now
+    };
+    inMemoryProjectVersions.unshift(newV);
+    return newV;
+  }
+
+  // --- PROJECT SYNC HISTORY ---
+  async createProjectSyncHistory(data: {
+    projectId: string;
+    status: string;
+    message?: string;
+    type: string;
+  }): Promise<any> {
+    const prisma = this.prisma;
+    const now = new Date();
+    if (prisma) {
+      return prisma.projectSyncHistory.create({
+        data: {
+          projectId: data.projectId,
+          status: data.status,
+          message: data.message || null,
+          type: data.type,
+          createdAt: now
+        }
+      });
+    }
+    const newS = {
+      id: `psh_${Date.now()}`,
+      projectId: data.projectId,
+      status: data.status,
+      message: data.message || null,
+      type: data.type,
+      createdAt: now
+    };
+    inMemoryProjectSyncHistories.unshift(newS);
+    return newS;
   }
 }
 

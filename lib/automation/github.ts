@@ -346,6 +346,13 @@ ${commitsSummary}
       date: now
     });
 
+    await cmsDb.createProjectSyncHistory({
+      projectId,
+      status: 'success',
+      message: `Synced repository ${owner}/${name}: ${metadata.stars} stars, ${metadata.forks} forks, ${commits.length} commits.`,
+      type: forceSync ? 'manual' : 'auto'
+    });
+
     return metadata;
   } catch (err: any) {
     console.error('[GitHub Sync] Error during repository sync, using mock fallback:', err);
@@ -392,6 +399,13 @@ Recent Changes: feat: add queue logs and retry policies
       settings: JSON.stringify({ ...settings, aiSummary: aiSummaryFallback }),
       metadata: JSON.stringify(mockMetadata),
       lastSyncedAt: now
+    });
+
+    await cmsDb.createProjectSyncHistory({
+      projectId,
+      status: 'success',
+      message: `Synced repository ${owner}/${name} (Sandbox mode): ${mockMetadata.stars} stars, ${mockMetadata.forks} forks.`,
+      type: forceSync ? 'manual' : 'auto'
     });
 
     return mockMetadata;

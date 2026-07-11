@@ -1,5 +1,4 @@
-import React from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { publicDb } from '@/lib/database/publicDb';
 import DeveloperProfileClient from '@/components/public/DeveloperProfileClient';
 import { Metadata } from 'next';
@@ -56,6 +55,10 @@ export default async function DeveloperProfilePage({ params }: PageProps) {
   const profileData = await publicDb.getDeveloperProfile(username);
 
   if (!profileData) {
+    const redir = await publicDb.getCmsRedirect(`/u/${username}`);
+    if (redir) {
+      permanentRedirect(redir.targetPath);
+    }
     notFound();
   }
 
@@ -96,6 +99,7 @@ export default async function DeveloperProfilePage({ params }: PageProps) {
         initialPosts={profileData.posts}
         initialFollowers={profileData.followers}
         initialFollowing={profileData.following}
+        initialBookmarks={profileData.bookmarks || []}
       />
     </>
   );

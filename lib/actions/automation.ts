@@ -232,6 +232,85 @@ export async function regenerateDraftAction(draftId: string) {
 }
 
 /**
+ * Generates multi-platform content drafts (LinkedIn, X, Dev.to, Release Notes, Newsletter)
+ * and saves all outputs immediately as draft records (Draft-first creation).
+ */
+export async function generateMultiPlatformDraftsAction(repositoryId: string, customTopic?: string) {
+  try {
+    const repo = await automationDb.getRepositoryById(repositoryId);
+    if (!repo) throw new Error('Repository configuration missing.');
+
+    const memory = await automationDb.getAiMemory(repo.workspaceId) || {
+      writingStyle: 'Direct and professional.',
+      preferredHashtags: ['developer', 'opensource'],
+      preferredEmojis: ['🚀', '💻'],
+      ctaStyle: 'Check out the repository!',
+      tone: 'technical',
+      audience: 'developers',
+    };
+
+    const metadata = await fetchRepoMetadata(repo.owner, repo.name);
+    const summaryContext = {
+      repoName: `${repo.owner}/${repo.name}`,
+      description: customTopic || repo.description || metadata.description || 'Developer platform feature update',
+      changeType: 'feature',
+      changeSummary: customTopic || `Generated comprehensive technical update for ${repo.name}`,
+      technologies: repo.languages || ['TypeScript', 'Next.js'],
+      previousPosts: [],
+    };
+
+    const batchResult = await generateBatchDrafts(summaryContext, memory, repo.aiModel);
+    const platforms: Array<'linkedin' | 'twitter' | 'devto' | 'release_notes' | 'newsletter'> = [
+      'linkedin',
+      'twitter',
+      'devto',
+      'release_notes',
+      'newsletter'
+    ];
+
+    const createdDrafts: any[] = [];
+    for (const platform of platforms) {
+      const output = batchResult[platform];
+      if (!output) continue;
+
+      const draft = await automationDb.createDraft({
+        repositoryId,
+        title: output.title || `${platform.toUpperCase()} Update`,
+        platform,
+        content: output.content,
+        status: 'draft',
+        aiConfidence: output.aiConfidence,
+        qualityScore: output.qualityScore,
+        readabilityScore: output.readabilityScore,
+        estimatedEngagement: output.estimatedEngagement,
+        readingTimeMin: output.readingTimeMin,
+        tokenCost: (batchResult.tokenCost || 0) / 5,
+      });
+
+      createdDrafts.push(draft);
+    }
+
+    revalidatePath('/admin/automation');
+    return { success: true, drafts: createdDrafts };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Restores a draft to a selected previous version from its history
+ */
+export async function restoreDraftVersionAction(draftId: string, versionId: string) {
+  try {
+    const restored = await automationDb.restoreDraftVersion(draftId, versionId);
+    revalidatePath('/admin/automation');
+    return { success: true, draft: restored };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Publishes a draft instantly to target platform
  */
 export async function publishDraftAction(draftId: string) {

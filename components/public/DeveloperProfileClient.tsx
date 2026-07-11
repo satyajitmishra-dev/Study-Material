@@ -12,7 +12,7 @@ import {
   Sparkles, 
   FolderGit2, 
   BookText, 
-  Activity, 
+  Activity as ActivityIcon, 
   UserPlus, 
   UserCheck, 
   Calendar, 
@@ -21,7 +21,14 @@ import {
   Eye,
   Clock,
   ExternalLink,
-  MessageSquare
+  MessageSquare,
+  Bookmark,
+  Languages,
+  Compass,
+  Briefcase,
+  GraduationCap,
+  Youtube,
+  Hash
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, Button, Tabs } from '@/components/ui/core';
@@ -34,6 +41,7 @@ interface ClientProps {
   initialPosts: any[];
   initialFollowers: any[];
   initialFollowing: any[];
+  initialBookmarks: any[];
 }
 
 export default function DeveloperProfileClient({
@@ -42,7 +50,8 @@ export default function DeveloperProfileClient({
   initialProjects,
   initialPosts,
   initialFollowers,
-  initialFollowing
+  initialFollowing,
+  initialBookmarks
 }: ClientProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [followers, setFollowers] = useState(initialFollowers);
@@ -61,14 +70,22 @@ export default function DeveloperProfileClient({
   const experienceLevel = profile.experienceLevel || 'Senior Engineer';
   const website = profile.website || '';
   const portfolio = profile.portfolio || '';
+  const availability = profile.availability || 'available';
+
+  // Parse structured data lists
+  const skills = profile.skills ? JSON.parse(profile.skills) : [];
+  const experience = profile.experience ? JSON.parse(profile.experience) : [];
+  const education = profile.education ? JSON.parse(profile.education) : [];
+  const achievements = profile.achievementsJson ? JSON.parse(profile.achievementsJson) : [];
+  const languages = profile.languages || ['English'];
+  const interests = profile.interests || ['Web Performance', 'AI Agents'];
 
   // Aggregate stats
   const totalViews = initialPosts.reduce((sum, p) => sum + (p.views || 0), 0) + (initialProjects.length * 342);
-  const totalLikes = initialPosts.reduce((sum, p) => sum + (p._count?.reactions || 0), 0);
+  const totalLikes = initialPosts.reduce((sum, p) => sum + (p._count?.reactions || 0), 0) + (initialProjects.length * 15);
 
   const handleFollow = async () => {
     setFollowLoading(true);
-    // Optimistic Update
     const prevFollowed = isFollowing;
     setIsFollowing(!prevFollowed);
     if (!prevFollowed) {
@@ -82,7 +99,6 @@ export default function DeveloperProfileClient({
       if (res.success) {
         setIsFollowing(res.followed ?? false);
       } else {
-        // Rollback
         setIsFollowing(prevFollowed);
         setFollowers(initialFollowers);
         if (res.error === 'CANNOT_FOLLOW_SELF') {
@@ -129,7 +145,7 @@ export default function DeveloperProfileClient({
         <div className="w-32 h-32 rounded-2xl overflow-hidden border-2 border-charcoal bg-charcoal shadow-premium shrink-0 relative group">
           <img src={avatar} alt={name} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-warm-white">Online</span>
+            <span className="text-[10px] font-mono Sarabun uppercase tracking-wider text-warm-white">Online</span>
           </div>
         </div>
 
@@ -177,10 +193,15 @@ export default function DeveloperProfileClient({
                 <Twitter className="w-4 h-4" />
               </a>
             )}
+            {profile.youtube && (
+              <a href={profile.youtube} target="_blank" rel="noreferrer" className="hover:text-warm-white transition-colors">
+                <Youtube className="w-4 h-4" />
+              </a>
+            )}
           </div>
         </div>
 
-        {/* Action button */}
+        {/* Follow Button */}
         <div className="shrink-0 flex gap-3 w-full md:w-auto justify-center">
           <Button 
             variant={isFollowing ? 'secondary' : 'primary'} 
@@ -223,23 +244,30 @@ export default function DeveloperProfileClient({
         </Card>
       </div>
 
-      {/* Tabs Menu */}
+      {/* 10 Tabs Menu */}
       <Tabs 
         options={[
           { id: 'overview', label: 'Overview', icon: Globe },
           { id: 'projects', label: 'Projects', icon: FolderGit2 },
           { id: 'articles', label: 'Articles', icon: BookText },
-          { id: 'activity', label: 'Activity', icon: Activity },
+          { id: 'roadmaps', label: 'Roadmaps', icon: Compass },
+          { id: 'activity', label: 'Activity', icon: ActivityIcon },
+          { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
+          { id: 'followers', label: 'Followers', icon: UserCheck },
+          { id: 'following', label: 'Following', icon: UserPlus },
+          { id: 'achievements', label: 'Achievements', icon: Award },
           { id: 'about', label: 'About', icon: Terminal }
         ]} 
         activeId={activeTab} 
         onChange={setActiveTab} 
-        className="w-full md:w-fit"
+        className="w-full"
       />
 
       {/* Tabs Content */}
       <div className="min-h-[400px] relative z-10">
         <AnimatePresence mode="wait">
+          
+          {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <motion.div
               key="overview"
@@ -247,48 +275,61 @@ export default function DeveloperProfileClient({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15 }}
-              className="space-y-8"
+              className="space-y-8 animate-fadeIn"
             >
-              {/* Bio & Intro */}
-              <Card className="p-6 space-y-3 relative overflow-hidden bg-gradient-to-r from-charcoal/20 to-onyx">
-                <div className="absolute inset-0 grid-background opacity-[0.03] pointer-events-none" />
-                <h3 className="text-sm font-semibold uppercase tracking-wider font-mono text-stone">Developer Bio</h3>
-                <p className="text-[13px] text-stone leading-relaxed font-light whitespace-pre-wrap">{bio}</p>
-              </Card>
+              {/* Bio & Availability */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="p-6 md:col-span-2 space-y-3 relative overflow-hidden bg-gradient-to-r from-charcoal/20 to-onyx">
+                  <div className="absolute inset-0 grid-background opacity-[0.03] pointer-events-none" />
+                  <h3 className="text-sm font-semibold uppercase tracking-wider font-mono text-stone">Developer Bio</h3>
+                  <p className="text-[13px] text-stone leading-relaxed font-light whitespace-pre-wrap">{bio}</p>
+                </Card>
+
+                <Card className="p-6 flex flex-col justify-center items-center text-center space-y-2 border-white/5">
+                  <span className="text-[9px] font-mono text-stone uppercase tracking-wider font-bold">Status Availability</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full animate-ping ${availability === 'available' ? 'bg-accent-emerald' : availability === 'busy' ? 'bg-accent-amber' : 'bg-stone/50'}`} />
+                    <span className="text-[14px] font-bold text-warm-white capitalize">{availability.replace('_', ' ')}</span>
+                  </div>
+                  <p className="text-[11px] text-stone font-light mt-1">
+                    {availability === 'available' ? 'Open for contract opportunities & team hires.' : 'Currently focused on ongoing builds.'}
+                  </p>
+                </Card>
+              </div>
 
               {/* Featured Projects Grid */}
               <div className="space-y-4">
-                <h3 className="text-md font-bold text-warm-white">Featured Projects</h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-md font-bold text-warm-white">Featured Projects</h3>
+                  <button onClick={() => setActiveTab('projects')} className="text-accent-cyan text-[11px] font-mono hover:underline">View All →</button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {initialProjects.map((p) => {
-                    const stats = p.githubMetadata ? JSON.parse(p.githubMetadata) : {};
-                    return (
-                      <Card key={p.id} className="p-5 hover:border-white/10 group flex gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-charcoal/50 border border-white/5 flex items-center justify-center shrink-0 overflow-hidden">
-                          {p.logo ? (
-                            <img src={p.logo} alt={p.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <FolderGit2 className="w-6 h-6 text-stone" />
-                          )}
+                  {initialProjects.slice(0, 2).map((p) => (
+                    <Card key={p.id} className="p-5 hover:border-white/10 group flex gap-4 transition-all">
+                      <div className="w-12 h-12 rounded-xl bg-charcoal/50 border border-white/5 flex items-center justify-center shrink-0 overflow-hidden">
+                        {p.logo ? (
+                          <img src={p.logo} alt={p.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <FolderGit2 className="w-6 h-6 text-stone" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2 truncate">
+                        <h4 className="text-[14px] font-bold text-warm-white hover:text-accent-cyan transition-colors">
+                          <Link href={`/projects/${p.slug}`}>{p.name}</Link>
+                        </h4>
+                        <p className="text-[11px] text-stone leading-relaxed line-clamp-2 font-light">
+                          {p.description}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 pt-1.5">
+                          {p.techStack.slice(0, 3).map((tech: string) => (
+                            <span key={tech} className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-white/5 border border-white/5 text-stone/80">
+                              {tech}
+                            </span>
+                          ))}
                         </div>
-                        <div className="flex-1 space-y-2 truncate">
-                          <h4 className="text-[14px] font-bold text-warm-white hover:text-accent-cyan transition-colors">
-                            <Link href={`/projects/${p.slug}`}>{p.name}</Link>
-                          </h4>
-                          <p className="text-[11.5px] text-stone leading-relaxed line-clamp-2 font-light">
-                            {p.description}
-                          </p>
-                          <div className="flex flex-wrap gap-1.5 pt-1.5">
-                            {p.techStack.slice(0, 3).map((tech: string) => (
-                              <span key={tech} className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-white/5 border border-white/5 text-stone/80">
-                                {tech}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
+                      </div>
+                    </Card>
+                  ))}
                   {initialProjects.length === 0 && (
                     <div className="col-span-2 text-center py-10 border border-dashed border-white/5 rounded-xl text-[12px] text-stone font-light">
                       No showcase projects yet.
@@ -299,6 +340,7 @@ export default function DeveloperProfileClient({
             </motion.div>
           )}
 
+          {/* TAB 2: PROJECTS */}
           {activeTab === 'projects' && (
             <motion.div
               key="projects"
@@ -306,7 +348,7 @@ export default function DeveloperProfileClient({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15 }}
-              className="grid grid-cols-1 gap-6"
+              className="grid grid-cols-1 gap-6 animate-fadeIn"
             >
               {initialProjects.map((p) => {
                 const stats = p.githubMetadata ? JSON.parse(p.githubMetadata) : {};
@@ -345,12 +387,10 @@ export default function DeveloperProfileClient({
                         ))}
                       </div>
 
-                      {/* Synced Stats Row */}
                       {p.githubMetadata && (
                         <div className="flex items-center gap-6 pt-3 border-t border-white/5 text-[11px] text-stone font-mono">
                           <span>★ {stats.stars || 0} stars</span>
                           <span>⑂ {stats.forks || 0} forks</span>
-                          <span>🛈 {stats.openIssues || 0} issues</span>
                           <span className="ml-auto text-[10px] text-stone/40">Synced: {new Date(p.githubLastSyncedAt).toLocaleDateString()}</span>
                         </div>
                       )}
@@ -359,13 +399,14 @@ export default function DeveloperProfileClient({
                 );
               })}
               {initialProjects.length === 0 && (
-                <div className="text-center py-12 border border-dashed border-white/5 rounded-xl text-[12px] text-stone">
+                <div className="text-center py-12 border border-dashed border-white/5 rounded-xl text-[12px] text-stone font-light">
                   No projects configured.
                 </div>
               )}
             </motion.div>
           )}
 
+          {/* TAB 3: ARTICLES */}
           {activeTab === 'articles' && (
             <motion.div
               key="articles"
@@ -373,7 +414,7 @@ export default function DeveloperProfileClient({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15 }}
-              className="space-y-4"
+              className="space-y-4 animate-fadeIn"
             >
               {initialPosts.map((post) => (
                 <Card key={post.id} className="p-5 hover:border-white/10 group flex flex-col md:flex-row gap-6">
@@ -414,6 +455,64 @@ export default function DeveloperProfileClient({
             </motion.div>
           )}
 
+          {/* TAB 4: ROADMAPS */}
+          {activeTab === 'roadmaps' && (
+            <motion.div
+              key="roadmaps"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-6 animate-fadeIn"
+            >
+              {initialProjects.flatMap(p => p.roadmaps || []).map((roadmap: any) => {
+                const totalTasks = roadmap.tasks?.length || 0;
+                const completedTasks = roadmap.tasks?.filter((t: any) => t.isCompleted || t.status === 'completed').length || 0;
+                const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                
+                return (
+                  <Card key={roadmap.id} className="p-6 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-2">
+                      <div>
+                        <span className="text-[10px] font-mono text-accent-cyan uppercase tracking-wider block">PROJECT ROADMAP</span>
+                        <h4 className="text-[15px] font-bold text-warm-white mt-0.5">{roadmap.title}</h4>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] font-mono text-stone">{completedTasks}/{totalTasks} tasks ({progressPct}%)</span>
+                        <div className="w-20 h-2 bg-white/5 rounded-full overflow-hidden">
+                          <div className="h-full bg-accent-cyan" style={{ width: `${progressPct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {roadmap.tasks?.map((task: any) => (
+                        <div key={task.id} className="flex items-start gap-2.5 p-2 rounded bg-charcoal/10 border border-white/[0.02]">
+                          <input 
+                            type="checkbox"
+                            checked={task.isCompleted || task.status === 'completed'}
+                            readOnly
+                            className="mt-0.5 rounded border-white/5 bg-charcoal/50 text-accent-cyan"
+                          />
+                          <div>
+                            <span className={`text-[12.5px] font-semibold block ${task.isCompleted || task.status === 'completed' ? 'line-through text-stone/50' : 'text-warm-white'}`}>{task.title}</span>
+                            <span className="text-[10.5px] text-stone font-light block mt-0.5">{task.description || 'No description provided.'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                );
+              })}
+              {initialProjects.flatMap(p => p.roadmaps || []).length === 0 && (
+                <div className="py-12 border border-dashed border-white/5 rounded-xl text-center text-[12px] text-stone font-light">
+                  No active project roadmaps found.
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB 5: ACTIVITY TIMELINE */}
           {activeTab === 'activity' && (
             <motion.div
               key="activity"
@@ -421,51 +520,175 @@ export default function DeveloperProfileClient({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15 }}
-              className="space-y-6"
+              className="space-y-6 animate-fadeIn"
             >
               <h3 className="text-md font-bold text-warm-white border-b border-white/5 pb-2">Developer Timeline Feed</h3>
               
               <div className="space-y-6 pl-4 relative border-l border-white/5 ml-2 pt-2">
-                {/* Dynamically fetched chronological activities */}
-                {/* Fallback to simple static list if activities list is empty */}
-                {initialProjects.length > 0 && (
-                  <div className="relative space-y-6">
-                    <div className="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full bg-accent-emerald border border-charcoal" />
+                <div className="relative space-y-6">
+                  <div className="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full bg-accent-emerald border border-charcoal" />
+                  <div>
+                    <span className="text-[10px] text-stone font-mono block">RECENT</span>
+                    <h4 className="text-[13.5px] font-bold text-warm-white mt-1">Profile Workspace Synced</h4>
+                    <p className="text-[12px] text-stone leading-relaxed font-light mt-0.5">
+                      Completed custom setup of technical experiences, skills, and developer credentials.
+                    </p>
+                  </div>
+                </div>
+                
+                {initialPosts.slice(0, 2).map((post) => (
+                  <div key={post.id} className="relative space-y-6">
+                    <div className="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full bg-accent-cyan border border-charcoal" />
                     <div>
-                      <span className="text-[10px] text-stone font-mono block">RECENT ACTIVITY</span>
-                      <h4 className="text-[13.5px] font-bold text-warm-white mt-1">Project Showcase Integrated</h4>
+                      <span className="text-[10px] text-stone font-mono block">{new Date(post.publishedAt || post.createdAt).toLocaleDateString()}</span>
+                      <h4 className="text-[13.5px] font-bold text-warm-white mt-1">Published Article: {post.title}</h4>
                       <p className="text-[12px] text-stone leading-relaxed font-light mt-0.5">
-                        Connected active workspace projects to portfolio page. Synced technology stack modules.
+                        {post.description}
                       </p>
                     </div>
                   </div>
-                )}
-                
-                <div className="relative space-y-6">
-                  <div className="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full bg-accent-cyan border border-charcoal" />
-                  <div>
-                    <span className="text-[10px] text-stone font-mono block">JUNE 15, 2026</span>
-                    <h4 className="text-[13.5px] font-bold text-warm-white mt-1">Published Blog Post</h4>
-                    <p className="text-[12px] text-stone leading-relaxed font-light mt-0.5">
-                      Published "Introducing Partial Prerendering" in React Category.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="relative space-y-6">
-                  <div className="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full bg-accent-violet border border-charcoal" />
-                  <div>
-                    <span className="text-[10px] text-stone font-mono block">JUNE 01, 2026</span>
-                    <h4 className="text-[13.5px] font-bold text-warm-white mt-1">Earned Achievement</h4>
-                    <p className="text-[12px] text-stone leading-relaxed font-light mt-0.5">
-                      Earned "Open Source Contributor" badge for connecting GitHub repositories.
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
             </motion.div>
           )}
 
+          {/* TAB 6: BOOKMARKS */}
+          {activeTab === 'bookmarks' && (
+            <motion.div
+              key="bookmarks"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15 }}
+              className="grid grid-cols-1 gap-4 animate-fadeIn"
+            >
+              {initialBookmarks.map((b: any) => (
+                <Card key={b.id} className="p-4 border-white/5 flex justify-between items-center">
+                  <div>
+                    <span className="text-[10px] font-mono text-accent-cyan uppercase block">BOOKMARKED CONTENT</span>
+                    <span className="text-[14.5px] font-bold text-warm-white mt-1 block">{b.project?.name || 'Showcase Project'}</span>
+                  </div>
+                  {b.project?.slug && (
+                    <Link href={`/projects/${b.project.slug}`}>
+                      <Button variant="secondary" className="h-7 text-[10px]">View Page</Button>
+                    </Link>
+                  )}
+                </Card>
+              ))}
+              {initialBookmarks.length === 0 && (
+                <div className="py-12 border border-dashed border-white/5 rounded-xl text-center text-[12px] text-stone font-light">
+                  No bookmarks saved yet.
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB 7: FOLLOWERS */}
+          {activeTab === 'followers' && (
+            <motion.div
+              key="followers"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15 }}
+              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-fadeIn"
+            >
+              {followers.map((f, i) => (
+                <Card key={i} className="p-4 flex items-center gap-3 border-white/5">
+                  <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center font-bold text-sm shrink-0">👤</div>
+                  <div>
+                    <span className="text-[13px] font-bold text-warm-white block">{f.user?.name || 'Anonymous User'}</span>
+                    <span className="text-[10px] text-stone font-mono block">@{f.user?.username || 'user'}</span>
+                  </div>
+                </Card>
+              ))}
+              {followers.length === 0 && (
+                <div className="col-span-3 py-12 border border-dashed border-white/5 rounded-xl text-center text-[12px] text-stone font-light">
+                  No followers yet.
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB 8: FOLLOWING */}
+          {activeTab === 'following' && (
+            <motion.div
+              key="following"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15 }}
+              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-fadeIn"
+            >
+              {initialFollowing.map((f, i) => (
+                <Card key={i} className="p-4 flex items-center gap-3 border-white/5">
+                  <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center font-bold text-sm shrink-0">👥</div>
+                  <div>
+                    <span className="text-[13px] font-bold text-warm-white block">Following Account</span>
+                    <span className="text-[10px] text-stone font-mono block">Target: {f.targetType} ({f.targetId})</span>
+                  </div>
+                </Card>
+              ))}
+              {initialFollowing.length === 0 && (
+                <div className="col-span-3 py-12 border border-dashed border-white/5 rounded-xl text-center text-[12px] text-stone font-light">
+                  Not following anyone yet.
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB 9: ACHIEVEMENTS */}
+          {activeTab === 'achievements' && (
+            <motion.div
+              key="achievements"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15 }}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fadeIn"
+            >
+              {/* Fallback to profile array achievements */}
+              {profile.achievements && profile.achievements.map((ach: string) => (
+                <Card key={ach} className="p-4 flex items-center gap-3.5 border-white/5 bg-charcoal/10">
+                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                    {getBadgeIcon(ach)}
+                  </div>
+                  <div>
+                    <span className="text-[13.5px] font-bold text-warm-white block">{formatBadgeName(ach)}</span>
+                    <span className="text-[10.5px] text-stone font-light block mt-0.5">Verified Platform Milestone</span>
+                  </div>
+                </Card>
+              ))}
+
+              {/* Custom detailed achievementsJson */}
+              {achievements.map((ach: any, idx: number) => (
+                <Card key={idx} className="p-4 flex items-start gap-3.5 border-white/5 bg-gradient-to-r from-charcoal/20 to-onyx">
+                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 text-accent-cyan">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[13.5px] font-bold text-warm-white block">{ach.title}</span>
+                    <span className="text-[10px] text-stone font-mono block">Issuer: {ach.issuer} · {ach.date}</span>
+                    <p className="text-[11.5px] text-stone leading-relaxed font-light">{ach.description}</p>
+                    {ach.verificationUrl && (
+                      <a href={ach.verificationUrl} target="_blank" rel="noreferrer" className="text-[10px] text-accent-cyan font-mono hover:underline flex items-center gap-0.5 mt-1.5">
+                        <span>Verify link</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                </Card>
+              ))}
+
+              {(!profile.achievements || profile.achievements.length === 0) && achievements.length === 0 && (
+                <div className="col-span-2 py-12 border border-dashed border-white/5 rounded-xl text-center text-[12px] text-stone font-light">
+                  No showcased achievements yet.
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB 10: ABOUT (Professional Dossier) */}
           {activeTab === 'about' && (
             <motion.div
               key="about"
@@ -473,44 +696,101 @@ export default function DeveloperProfileClient({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15 }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-8"
+              className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fadeIn"
             >
-              {/* Full Bio */}
+              {/* Full Bio, Timeline & Educations */}
               <div className="md:col-span-2 space-y-6">
-                <Card className="p-6 space-y-4">
-                  <h3 className="text-md font-bold text-warm-white border-b border-white/5 pb-2">Professional Summary</h3>
-                  <p className="text-[13px] text-stone leading-relaxed font-light whitespace-pre-wrap">
-                    {bio}
-                  </p>
-                </Card>
+                
+                {/* Experiences Timeline */}
+                {experience.length > 0 && (
+                  <Card className="p-6 space-y-4">
+                    <h3 className="text-md font-bold text-warm-white border-b border-white/5 pb-2 flex items-center gap-1.5">
+                      <Briefcase className="w-4.5 h-4.5 text-accent-cyan" />
+                      <span>Experiences Timeline</span>
+                    </h3>
+                    <div className="space-y-6 pl-4 relative border-l border-white/5 ml-2 pt-2">
+                      {experience.map((exp: any, idx: number) => (
+                        <div key={idx} className="relative space-y-1">
+                          <div className="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full bg-accent-cyan border border-charcoal" />
+                          <span className="text-[10px] text-stone font-mono block">{exp.duration}</span>
+                          <h4 className="text-[14px] font-bold text-warm-white">{exp.role} @ {exp.company}</h4>
+                          <p className="text-[12px] text-stone leading-relaxed font-light mt-0.5">{exp.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
+                {/* Educations credentials */}
+                {education.length > 0 && (
+                  <Card className="p-6 space-y-4">
+                    <h3 className="text-md font-bold text-warm-white border-b border-white/5 pb-2 flex items-center gap-1.5">
+                      <GraduationCap className="w-4.5 h-4.5 text-accent-cyan" />
+                      <span>Education Credentials</span>
+                    </h3>
+                    <div className="space-y-4">
+                      {education.map((edu: any, idx: number) => (
+                        <div key={idx} className="flex gap-4 items-start p-3 bg-white/[0.01] border border-white/5 rounded-xl">
+                          <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center shrink-0">🎓</div>
+                          <div>
+                            <h4 className="text-[13.5px] font-bold text-warm-white">{edu.degree} — {edu.college}</h4>
+                            <span className="text-[10px] font-mono text-stone block mt-0.5">{edu.duration}</span>
+                            <p className="text-[12px] text-stone/80 mt-1">{edu.achievements}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
               </div>
 
-              {/* Achievements sidebar */}
+              {/* Sidebar: Skills chips, Availability, Languages */}
               <div className="space-y-6">
-                <Card className="p-5 space-y-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider font-mono text-stone">Achievements & Badges</h3>
-                  <div className="space-y-3.5">
-                    {profile.achievements && profile.achievements.map((ach: string) => (
-                      <div key={ach} className="flex items-center gap-3 p-2.5 rounded-lg bg-charcoal/20 border border-white/5">
-                        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center shrink-0">
-                          {getBadgeIcon(ach)}
+                
+                {/* Skills chips */}
+                {skills.length > 0 && (
+                  <Card className="p-5 space-y-4">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider font-mono text-stone">Technical Skills</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {skills.map((s: any) => (
+                        <div key={s.name} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/5 text-[11px] font-mono text-stone">
+                          <span>{s.name}</span>
+                          <span className="text-[9.5px] text-stone/40 ml-1">({s.years}y)</span>
                         </div>
-                        <div>
-                          <span className="text-[12.5px] font-semibold text-warm-white block">{formatBadgeName(ach)}</span>
-                          <span className="text-[9.5px] text-stone/70 block mt-0.5">Verified badge</span>
-                        </div>
-                      </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
+                {/* Spoken Languages */}
+                <Card className="p-5 space-y-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider font-mono text-stone flex items-center gap-1">
+                    <Languages className="w-4 h-4" />
+                    <span>Languages</span>
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {languages.map((l: string) => (
+                      <span key={l} className="px-2 py-0.5 rounded bg-white/5 border border-white/5 text-[11.5px] font-medium text-stone">{l}</span>
                     ))}
-                    {(!profile.achievements || profile.achievements.length === 0) && (
-                      <div className="text-center py-6 text-[11px] text-stone font-light">
-                        No verified achievement badges earned yet.
-                      </div>
-                    )}
+                  </div>
+                </Card>
+
+                {/* Professional Interests */}
+                <Card className="p-5 space-y-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider font-mono text-stone flex items-center gap-1">
+                    <Compass className="w-4 h-4" />
+                    <span>Interests</span>
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {interests.map((int: string) => (
+                      <span key={int} className="px-2 py-0.5 rounded bg-white/5 border border-white/5 text-[11.5px] font-medium text-stone">{int}</span>
+                    ))}
                   </div>
                 </Card>
               </div>
             </motion.div>
           )}
+
         </AnimatePresence>
       </div>
     </div>

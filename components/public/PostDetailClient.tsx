@@ -27,6 +27,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card, Button } from '@/components/ui/core';
+import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer';
 import { 
   reactToPostAction, 
   bookmarkPostAction, 
@@ -451,10 +452,7 @@ export default function PostDetailClient({
           {/* Post Rich Content */}
           <article className="prose prose-invert max-w-none text-[15px] text-fog/90 leading-relaxed font-light space-y-6 select-text">
             {post.content ? (
-              <div 
-                className="space-y-6"
-                dangerouslySetInnerHTML={{ __html: post.content }} 
-              />
+              <MarkdownRenderer content={post.content} />
             ) : (
               <>
                 <p>

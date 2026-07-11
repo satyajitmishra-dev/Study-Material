@@ -90,8 +90,14 @@ export async function updateDeveloperProjectAction(projectId: string, data: {
   license?: string;
   status?: string;
   startDate?: string;
-  completionDate?: string;
   tagsList?: string[];
+  screenshots?: string[];
+  category?: string;
+  githubUrl?: string;
+  gitlabUrl?: string;
+  bitbucketUrl?: string;
+  apiDocsUrl?: string;
+  npmPackageUrl?: string;
 }) {
   await requireAuth();
   try {
@@ -392,5 +398,74 @@ export async function generateAiDraftFromCommitsAction(
     return { success: true, draft: cmsDraft };
   } catch (err: any) {
     return { success: false, error: err.message || 'Failed to generate AI draft.' };
+  }
+}
+
+// 9. Manage Project Contributors
+export async function saveProjectContributorAction(data: {
+  id?: string;
+  projectId: string;
+  userId?: string | null;
+  email?: string | null;
+  name?: string | null;
+  role?: string;
+}) {
+  await requireAuth();
+  try {
+    const contributor = await cmsDb.upsertProjectContributor(data);
+    const project = await cmsDb.getDeveloperProjectById(data.projectId);
+    if (project?.slug) {
+      revalidatePath(`/projects/${project.slug}`);
+      revalidatePath(`/projects/${project.slug}/dashboard`);
+    }
+    return { success: true, contributor };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to save contributor.' };
+  }
+}
+
+export async function deleteProjectContributorAction(id: string, projectId: string) {
+  await requireAuth();
+  try {
+    await cmsDb.deleteProjectContributor(id);
+    const project = await cmsDb.getDeveloperProjectById(projectId);
+    if (project?.slug) {
+      revalidatePath(`/projects/${project.slug}`);
+      revalidatePath(`/projects/${project.slug}/dashboard`);
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to remove contributor.' };
+  }
+}
+
+// 10. Create Project Version Release
+export async function createProjectVersionAction(data: {
+  projectId: string;
+  version: string;
+  changelog: string;
+  releaseNotes?: string;
+}) {
+  await requireAuth();
+  try {
+    const version = await cmsDb.createProjectVersion(data);
+    
+    // Auto timeline event
+    await cmsDb.createTimelineEvent({
+      projectId: data.projectId,
+      title: `Released ${data.version}`,
+      description: data.changelog,
+      type: 'release',
+      date: new Date()
+    });
+
+    const project = await cmsDb.getDeveloperProjectById(data.projectId);
+    if (project?.slug) {
+      revalidatePath(`/projects/${project.slug}`);
+      revalidatePath(`/projects/${project.slug}/dashboard`);
+    }
+    return { success: true, version };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to create version release.' };
   }
 }

@@ -25,7 +25,11 @@ import {
   RefreshCw,
   GitCommit,
   GitPullRequest,
-  ExternalLink
+  ExternalLink,
+  Users,
+  Tag,
+  History,
+  Image
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, Button, Input, Tabs } from '@/components/ui/core';
@@ -39,7 +43,10 @@ import {
   deleteRoadmapTaskAction,
   saveTimelineEventAction,
   deleteTimelineEventAction,
-  generateAiDraftFromCommitsAction
+  generateAiDraftFromCommitsAction,
+  saveProjectContributorAction,
+  deleteProjectContributorAction,
+  createProjectVersionAction
 } from '@/lib/actions/projectActions';
 
 function pViews(id: string) {
@@ -105,7 +112,30 @@ export default function ProjectDashboardClient({
   const [techStackInput, setTechStackInput] = useState<string>(project.techStack?.join(', ') || '');
   const [license, setLicense] = useState(project.license || 'MIT');
   const [visibility, setVisibility] = useState(project.visibility || 'public');
+  const [screenshotsInput, setScreenshotsInput] = useState<string>((project.screenshots || []).join(', '));
+  const [categoryInput, setCategoryInput] = useState<string>(project.category || 'Engineering');
+  const [tagsInput, setTagsInput] = useState<string>((project.tagsList || []).join(', '));
+  const [githubUrl, setGithubUrl] = useState<string>(project.githubUrl || '');
+  const [gitlabUrl, setGitlabUrl] = useState<string>(project.gitlabUrl || '');
+  const [npmPackageUrl, setNpmPackageUrl] = useState<string>(project.npmPackageUrl || '');
   const [saveSettingsLoading, setSaveSettingsLoading] = useState(false);
+
+  // Contributors & Versions lists state
+  const [contributors, setContributors] = useState<any[]>(project.contributors || []);
+  const [versions, setVersions] = useState<any[]>(project.versions || []);
+  const [syncHistory, setSyncHistory] = useState<any[]>(project.syncHistory || []);
+
+  // Contributor form state
+  const [contribName, setContribName] = useState('');
+  const [contribEmail, setContribEmail] = useState('');
+  const [contribRole, setContribRole] = useState('contributor');
+  const [contribLoading, setContribLoading] = useState(false);
+
+  // Version form state
+  const [verNumber, setVerNumber] = useState('v1.1.0');
+  const [verChangelog, setVerChangelog] = useState('');
+  const [verNotes, setVerNotes] = useState('');
+  const [verLoading, setVerLoading] = useState(false);
 
   // Connect git repo
   const handleConnectRepo = async (repoUrl: string, fullName: string) => {
@@ -317,22 +347,95 @@ export default function ProjectDashboardClient({
 
     try {
       const stack = techStackInput.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const shots = screenshotsInput.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const tags = tagsInput.split(',').map((s: string) => s.trim()).filter(Boolean);
+
       const res = await updateDeveloperProjectAction(project.id, {
         liveDemo,
         documentationUrl: docUrl,
         techStack: stack,
         license,
-        visibility
+        visibility,
+        screenshots: shots,
+        category: categoryInput,
+        tagsList: tags,
+        githubUrl,
+        gitlabUrl,
+        npmPackageUrl
       });
 
       if (res.success) {
         setProject(res.project);
         alert('Showcase settings saved successfully!');
+      } else {
+        alert('Failed: ' + res.error);
       }
     } catch (err) {
       alert('Failed to save settings.');
     } finally {
       setSaveSettingsLoading(false);
+    }
+  };
+
+  // Add Contributor
+  const handleAddContributor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contribName.trim()) return;
+    setContribLoading(true);
+    try {
+      const res = await saveProjectContributorAction({
+        projectId: project.id,
+        name: contribName.trim(),
+        email: contribEmail.trim() || null,
+        role: contribRole
+      });
+      if (res.success) {
+        setContributors([...contributors, res.contributor]);
+        setContribName('');
+        setContribEmail('');
+        setContribRole('contributor');
+      }
+    } catch (err) {
+      alert('Error adding contributor');
+    } finally {
+      setContribLoading(false);
+    }
+  };
+
+  // Remove Contributor
+  const handleRemoveContributor = async (id: string) => {
+    try {
+      const res = await deleteProjectContributorAction(id, project.id);
+      if (res.success) {
+        setContributors(contributors.filter(c => c.id !== id));
+      }
+    } catch (err) {
+      alert('Error removing contributor');
+    }
+  };
+
+  // Add Version Release
+  const handleAddVersion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verNumber.trim() || !verChangelog.trim()) return;
+    setVerLoading(true);
+    try {
+      const res = await createProjectVersionAction({
+        projectId: project.id,
+        version: verNumber.trim(),
+        changelog: verChangelog.trim(),
+        releaseNotes: verNotes.trim() || undefined
+      });
+      if (res.success) {
+        setVersions([res.version, ...versions]);
+        setVerNumber('');
+        setVerChangelog('');
+        setVerNotes('');
+      }
+    } catch (err) {
+      alert('Error adding release');
+    } finally {
+      setVerLoading(false);
     }
   };
 
@@ -369,6 +472,8 @@ export default function ProjectDashboardClient({
           { id: 'repository', label: 'Repository Control', icon: Github },
           { id: 'ai', label: 'AI Content Studio', icon: Sparkles },
           { id: 'roadmap', label: 'Roadmap Builder', icon: ListTodo },
+          { id: 'contributors', label: 'Contributors', icon: Users },
+          { id: 'releases', label: 'Version Releases', icon: Tag },
           { id: 'timeline', label: 'Timeline Logs', icon: Clock },
           { id: 'analytics', label: 'Visitor Analytics', icon: TrendingUp },
           { id: 'settings', label: 'Settings & Integrations', icon: FolderGit2 }
@@ -537,7 +642,50 @@ export default function ProjectDashboardClient({
                     </Card>
                   </div>
                 </div>
-              ) : (
+              ) : null}
+
+              {/* Repository Sync History */}
+              <Card className="p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider font-mono text-warm-white flex items-center gap-2">
+                      <History className="w-4 h-4 text-accent-cyan" />
+                      <span>Repository Sync Audit History</span>
+                    </h3>
+                    <p className="text-[11.5px] text-stone font-light mt-0.5">Automated and manual repository sync records and API cache status.</p>
+                  </div>
+                  {githubMeta && (
+                    <Button variant="secondary" onClick={handleSync} disabled={syncLoading} className="py-1.5 px-3 text-[11px] flex items-center gap-1.5">
+                      <RefreshCw className={`w-3.5 h-3.5 ${syncLoading ? 'animate-spin' : ''}`} />
+                      <span>{syncLoading ? 'Syncing API...' : 'Force Sync API'}</span>
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {syncHistory.map((sh: any) => (
+                    <div key={sh.id} className="p-3 rounded-lg bg-onyx/30 border border-white/5 flex items-center justify-between text-[12px]">
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase
+                          ${sh.status === 'success' ? 'bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/30' : 'bg-accent-pink/15 text-accent-pink border border-accent-pink/30'}`}
+                        >
+                          {sh.status}
+                        </span>
+                        <span className="text-warm-white font-medium">{sh.message || 'Synced repository state'}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-stone font-mono text-[11px]">
+                        <span className="uppercase text-[10px] px-1.5 py-0.5 rounded bg-white/5">{sh.type}</span>
+                        <span>{new Date(sh.createdAt).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {syncHistory.length === 0 && (
+                    <p className="text-center py-4 text-[12px] text-stone font-light">No sync events recorded yet.</p>
+                  )}
+                </div>
+              </Card>
+
+              {!githubMeta && (
                 <Card className="p-8 text-center space-y-4 max-w-md mx-auto">
                   <Github className="w-12 h-12 text-stone mx-auto" />
                   <h3 className="text-[15px] font-bold text-warm-white">Connect a Git Repository First</h3>
@@ -792,6 +940,214 @@ export default function ProjectDashboardClient({
             </motion.div>
           )}
 
+          {activeTab === 'contributors' && (
+            <motion.div
+              key="contributors"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6 max-w-3xl"
+            >
+              <Card className="p-6 space-y-6">
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <div>
+                    <h3 className="text-md font-bold text-warm-white flex items-center gap-2">
+                      <Users className="w-4 h-4 text-accent-cyan" />
+                      <span>Team & Contributors Management</span>
+                    </h3>
+                    <p className="text-[12px] text-stone font-light mt-0.5">Assign collaborative roles and permissions for this project container.</p>
+                  </div>
+                </div>
+
+                {/* Form to add contributor */}
+                <form onSubmit={handleAddContributor} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-xl bg-onyx/50 border border-white/5">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-stone uppercase tracking-wider block">Full Name</label>
+                    <input
+                      type="text"
+                      value={contribName}
+                      onChange={(e) => setContribName(e.target.value)}
+                      placeholder="Developer Name"
+                      required
+                      className="w-full px-3 py-2 text-[12.5px] bg-charcoal/40 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-stone uppercase tracking-wider block">Email Address</label>
+                    <input
+                      type="email"
+                      value={contribEmail}
+                      onChange={(e) => setContribEmail(e.target.value)}
+                      placeholder="dev@example.com"
+                      className="w-full px-3 py-2 text-[12.5px] bg-charcoal/40 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-stone uppercase tracking-wider block">Role</label>
+                    <select
+                      value={contribRole}
+                      onChange={(e) => setContribRole(e.target.value)}
+                      className="w-full px-3 py-2 text-[12.5px] bg-charcoal/40 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10"
+                    >
+                      <option value="owner">Owner</option>
+                      <option value="maintainer">Maintainer</option>
+                      <option value="contributor">Contributor</option>
+                      <option value="reviewer">Reviewer</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={contribLoading}
+                      className="w-full py-2 text-[12px] flex items-center justify-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{contribLoading ? 'Adding...' : 'Add Member'}</span>
+                    </Button>
+                  </div>
+                </form>
+
+                {/* Contributors List */}
+                <div className="space-y-2.5">
+                  <h4 className="text-[11px] font-semibold text-stone uppercase tracking-wider font-mono">Current Contributors ({contributors.length})</h4>
+                  {contributors.map((c: any) => (
+                    <div key={c.id} className="p-3.5 rounded-xl bg-onyx/30 border border-white/5 flex items-center justify-between text-[12.5px]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-accent-cyan/10 border border-accent-cyan/20 flex items-center justify-center text-accent-cyan font-bold text-[12px]">
+                          {(c.name || 'U')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <span className="font-bold text-warm-white block">{c.name || c.email || 'Developer'}</span>
+                          <span className="text-[11px] text-stone font-mono block">{c.email || 'No email specified'}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider
+                          ${c.role === 'owner' ? 'bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30' :
+                            c.role === 'maintainer' ? 'bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/30' :
+                            'bg-white/5 text-stone border border-white/10'}`}
+                        >
+                          {c.role}
+                        </span>
+                        {c.role !== 'owner' && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveContributor(c.id)}
+                            className="p-1.5 rounded-lg text-stone hover:text-accent-pink hover:bg-white/5 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {contributors.length === 0 && (
+                    <p className="text-center py-6 text-[12px] text-stone font-light">No contributors listed yet.</p>
+                  )}
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
+          {activeTab === 'releases' && (
+            <motion.div
+              key="releases"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6 max-w-3xl"
+            >
+              <Card className="p-6 space-y-6">
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <div>
+                    <h3 className="text-md font-bold text-warm-white flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-accent-cyan" />
+                      <span>Version Releases & Changelog</span>
+                    </h3>
+                    <p className="text-[12px] text-stone font-light mt-0.5">Publish version updates and automatic release notes to your subscribers.</p>
+                  </div>
+                </div>
+
+                {/* Form to release a version */}
+                <form onSubmit={handleAddVersion} className="space-y-4 p-4 rounded-xl bg-onyx/50 border border-white/5">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-mono text-stone uppercase tracking-wider block">Version Number</label>
+                      <input
+                        type="text"
+                        value={verNumber}
+                        onChange={(e) => setVerNumber(e.target.value)}
+                        placeholder="e.g. v1.2.0"
+                        required
+                        className="w-full px-3 py-2 text-[12.5px] bg-charcoal/40 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10 font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-[10px] font-mono text-stone uppercase tracking-wider block">Short Summary / Headline</label>
+                      <input
+                        type="text"
+                        value={verChangelog}
+                        onChange={(e) => setVerChangelog(e.target.value)}
+                        placeholder="e.g. Added multi-VCS sync and enhanced public showcase gallery"
+                        required
+                        className="w-full px-3 py-2 text-[12.5px] bg-charcoal/40 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-stone uppercase tracking-wider block">Release Notes (Markdown)</label>
+                    <textarea
+                      value={verNotes}
+                      onChange={(e) => setVerNotes(e.target.value)}
+                      rows={3}
+                      placeholder="Provide detailed notes, bugfixes, or migration steps..."
+                      className="w-full px-3 py-2 text-[12.5px] bg-charcoal/40 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={verLoading}
+                      className="py-2 px-4 text-[12px] flex items-center gap-1.5"
+                    >
+                      <Tag className="w-3.5 h-3.5" />
+                      <span>{verLoading ? 'Publishing...' : 'Publish Release'}</span>
+                    </Button>
+                  </div>
+                </form>
+
+                {/* Versions List */}
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-semibold text-stone uppercase tracking-wider font-mono">Release History ({versions.length})</h4>
+                  {versions.map((v: any) => (
+                    <div key={v.id} className="p-4 rounded-xl bg-onyx/30 border border-white/5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-md bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30 text-[11px] font-mono font-bold">
+                            {v.version}
+                          </span>
+                          <span className="font-bold text-warm-white text-[13px]">{v.changelog}</span>
+                        </div>
+                        <span className="text-[11px] text-stone font-mono">{new Date(v.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      {v.releaseNotes && (
+                        <p className="text-[12px] text-stone/90 leading-relaxed font-light pl-1 border-l-2 border-accent-cyan/30 mt-1">
+                          {v.releaseNotes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  {versions.length === 0 && (
+                    <p className="text-center py-6 text-[12px] text-stone font-light">No version releases recorded yet.</p>
+                  )}
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
           {activeTab === 'timeline' && (
             <motion.div
               key="timeline"
@@ -1025,19 +1381,33 @@ export default function ProjectDashboardClient({
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">License Type</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={license}
                           onChange={(e) => setLicense(e.target.value)}
                           className="w-full px-3 py-2 text-[12.5px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10"
                         />
                       </div>
                       <div className="space-y-1.5">
+                        <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">Showcase Category</label>
+                        <select
+                          value={categoryInput}
+                          onChange={(e) => setCategoryInput(e.target.value)}
+                          className="w-full px-3 py-2 text-[12.5px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10"
+                        >
+                          <option value="Engineering">Engineering</option>
+                          <option value="Open Source">Open Source</option>
+                          <option value="AI & ML">AI & ML</option>
+                          <option value="Developer Tools">Developer Tools</option>
+                          <option value="Full Stack">Full Stack</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
                         <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">Visibility Scope</label>
-                        <select 
+                        <select
                           value={visibility}
                           onChange={(e) => setVisibility(e.target.value)}
                           className="w-full px-3 py-2 text-[12.5px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10"
@@ -1045,6 +1415,61 @@ export default function ProjectDashboardClient({
                           <option value="public">Public Showcase</option>
                           <option value="private">Private Container</option>
                         </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">Tags (comma-separated)</label>
+                      <input
+                        type="text"
+                        value={tagsInput}
+                        onChange={(e) => setTagsInput(e.target.value)}
+                        placeholder="nextjs, react, database, ai"
+                        className="w-full px-3 py-2 text-[12.5px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10 font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">Screenshots URLs (comma-separated image links)</label>
+                      <input
+                        type="text"
+                        value={screenshotsInput}
+                        onChange={(e) => setScreenshotsInput(e.target.value)}
+                        placeholder="https://images.unsplash.com/..., https://..."
+                        className="w-full px-3 py-2 text-[12.5px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10 font-mono"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">GitHub URL</label>
+                        <input
+                          type="text"
+                          value={githubUrl}
+                          onChange={(e) => setGithubUrl(e.target.value)}
+                          placeholder="https://github.com/org/repo"
+                          className="w-full px-3 py-2 text-[12.5px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10 font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">GitLab URL</label>
+                        <input
+                          type="text"
+                          value={gitlabUrl}
+                          onChange={(e) => setGitlabUrl(e.target.value)}
+                          placeholder="https://gitlab.com/..."
+                          className="w-full px-3 py-2 text-[12.5px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10 font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">NPM Package URL</label>
+                        <input
+                          type="text"
+                          value={npmPackageUrl}
+                          onChange={(e) => setNpmPackageUrl(e.target.value)}
+                          placeholder="https://npmjs.com/package/..."
+                          className="w-full px-3 py-2 text-[12.5px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/10 font-mono"
+                        />
                       </div>
                     </div>
 

@@ -27,6 +27,14 @@ model User {
   organizations Organization[]
   orgAuditLogs  OrganizationAuditLog[]
 
+  // --- DEVELOPER PLATFORM EXTENSIONS ---
+  lastUsernameChangedAt DateTime?
+  profileVisibility     String                 @default("public") // public | private | unlisted
+  hiddenFields          String[]               @default([]) // e.g. ["email", "location", "followers", "following", "activity", "projects", "socialLinks"]
+  usernameHistory       UsernameHistory[]
+  draftBackups          DraftBackup[]
+  projectContributors   ProjectContributor[]
+
   // --- PUBLIC PLATFORM RELATIONS ---
   authorProfile     AuthorProfile?
   bookmarks         Bookmark[]
@@ -738,6 +746,22 @@ model AuthorProfile {
   portfolio       String?
   experienceLevel String?
   achievements    String[] @default([])
+  skills          String?  @db.Text // JSON string representing Skills Chips with experience, level, popularity
+  experience      String?  @db.Text // JSON string representing array of Experience Timeline objects
+  education       String?  @db.Text // JSON string representing array of Education Timeline objects
+  languages       String[] @default([])
+  interests       String[] @default([])
+  availability    String?  @default("available") // available | busy | not_looking
+  youtube         String?
+  discord         String?
+  hashnode        String?
+  devto           String?
+  leetcode        String?
+  codeforces      String?
+  codechef        String?
+  hackerrank      String?
+  medium          String?
+  achievementsJson String?  @db.Text // JSON string representing complex achievements
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -819,6 +843,16 @@ model Project {
   integrations       Integration[]
   roadmaps           ProjectRoadmap[]
   timelines          ProjectTimeline[]
+  category           String?
+  screenshots        String[]               @default([])
+  githubUrl          String?
+  gitlabUrl          String?
+  bitbucketUrl       String?
+  apiDocsUrl         String?
+  npmPackageUrl      String?
+  contributors       ProjectContributor[]
+  syncHistory        ProjectSyncHistory[]
+  versions           ProjectVersion[]
 }
 
 model Integration {
@@ -946,4 +980,66 @@ model CmsSearchQuery {
   impressions Int      @default(0)
   ctr         Float    @default(0.0)
   updatedAt   DateTime @updatedAt
+}
+
+model UsernameHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  oldUsername String   @unique
+  newUsername String
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+model DraftBackup {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String   // e.g. "profile", "project_cuid", "article_cuid"
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([key])
+}
+
+model ProjectContributor {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email     String?
+  name      String?
+  role      String   @default("contributor") // owner | maintainer | contributor | reviewer | viewer
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model ProjectSyncHistory {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status    String   @default("success") // success | failed
+  message   String?  @db.Text
+  type      String   @default("manual") // manual | auto
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model ProjectVersion {
+  id           String   @id @default(cuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version      String   // e.g. v1.0.0
+  changelog    String   @db.Text
+  releaseNotes String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([projectId])
 }

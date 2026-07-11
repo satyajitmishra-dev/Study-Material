@@ -3,19 +3,29 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
-// Singleton Prisma Client
-let globalPrisma: PrismaClient | undefined;
+// Global Singleton for Prisma + pg Pool across Next.js dev hot reloads
+const globalForPrisma = globalThis as unknown as {
+  prismaPool: Pool | undefined;
+  prismaClient: PrismaClient | undefined;
+};
 
 export const getPrisma = (): PrismaClient | null => {
   if (typeof window !== 'undefined') return null;
   if (!process.env.DATABASE_URL) return null;
-  
-  if (!globalPrisma) {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+  if (!globalForPrisma.prismaClient) {
+    const pool = globalForPrisma.prismaPool ?? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 5, // Limit max connections per Node instance to prevent session pool exhaustion (EMAXCONNSESSION)
+      idleTimeoutMillis: 20000,
+      connectionTimeoutMillis: 10000,
+    });
+    globalForPrisma.prismaPool = pool;
+
     const adapter = new PrismaPg(pool);
-    globalPrisma = new PrismaClient({ adapter });
+    globalForPrisma.prismaClient = new PrismaClient({ adapter });
   }
-  return globalPrisma;
+  return globalForPrisma.prismaClient;
 };
 
 // --- 1. PRISMA DATABASE ADAPTER ---

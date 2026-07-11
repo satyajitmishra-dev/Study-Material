@@ -56,6 +56,12 @@ let inMemoryRoadmaps: ProjectRoadmap[] = [];
 let inMemoryRoadmapTasks: RoadmapTask[] = [];
 let inMemoryTimelines: ProjectTimeline[] = [];
 let inMemoryProjects: any[] = [];
+export let inMemoryUsernameHistories: any[] = [];
+export let inMemoryDraftBackups: any[] = [];
+export let inMemoryCmsRedirects: any[] = [];
+export let inMemoryProjectContributors: any[] = [];
+export let inMemoryProjectSyncHistories: any[] = [];
+export let inMemoryProjectVersions: any[] = [];
 
 // Seed initial records in Sandbox Mode
 const seedPublicSandboxDb = () => {
@@ -126,6 +132,37 @@ const seedPublicSandboxDb = () => {
     portfolio: 'https://studymaterial.utool.in/portfolio',
     experienceLevel: 'Principal Architect',
     achievements: ['open_source_contributor', 'ai_wizard'],
+    skills: JSON.stringify([
+      { name: "Next.js", years: 4, level: "Expert", popularity: 98 },
+      { name: "React", years: 6, level: "Expert", popularity: 95 },
+      { name: "TypeScript", years: 5, level: "Expert", popularity: 92 },
+      { name: "Prisma", years: 3, level: "Intermediate", popularity: 88 },
+      { name: "Node.js", years: 5, level: "Advanced", popularity: 90 },
+      { name: "PostgreSQL", years: 4, level: "Advanced", popularity: 85 }
+    ]),
+    experience: JSON.stringify([
+      { company: "Vercel", role: "Principal Architect", duration: "2024 - Present", description: "Spearheaded Partial Prerendering and React 19 core features development." },
+      { company: "Google", role: "Senior Software Engineer", duration: "2021 - 2024", description: "Worked on Chrome DevTools integrations and performance diagnostics." }
+    ]),
+    education: JSON.stringify([
+      { college: "Stanford University", degree: "M.S.", branch: "Computer Science", duration: "2019 - 2021", cgpa: "3.9", achievements: "Specialized in Distributed Systems" }
+    ]),
+    languages: ["English", "Hindi", "Odia"],
+    interests: ["Compilers", "Web Performance", "AI/ML", "UI Design"],
+    availability: "available",
+    youtube: "https://youtube.com",
+    discord: "https://discord.gg/studymaterial",
+    hashnode: "https://hashnode.dev/satyajit",
+    devto: "https://dev.to/satyajit",
+    leetcode: "https://leetcode.com/satyajit",
+    codeforces: "https://codeforces.com/profile/satyajit",
+    codechef: "https://codechef.com/users/satyajit",
+    hackerrank: "https://hackerrank.com/satyajit",
+    medium: "https://medium.com/@satyajit",
+    achievementsJson: JSON.stringify([
+      { title: "LeetCode Guardian", description: "Top 1% rating globally on LeetCode", issuer: "LeetCode", date: "2026-03-01", verificationUrl: "https://leetcode.com" },
+      { title: "Open Source Advocate", description: "Contributed to React core and Next.js repositories", issuer: "GitHub", date: "2025-12-15", verificationUrl: "https://github.com/reactjs" }
+    ]),
     createdAt: now,
     updatedAt: now
   });
@@ -294,6 +331,45 @@ const seedPublicSandboxDb = () => {
     description: 'Google OAuth login pipelines and account tokens functional.',
     type: 'roadmap_complete',
     date: new Date(now.getTime() - 3600000 * 24),
+    createdAt: now
+  });
+
+  // Setup sample contributors
+  inMemoryProjectContributors.push({
+    id: 'pc_1',
+    projectId: 'proj_sandbox_1',
+    userId: 'sandbox-admin-id',
+    name: 'Satyajit Mishra',
+    email: 'admin@gmail.com',
+    role: 'owner',
+    createdAt: now
+  }, {
+    id: 'pc_2',
+    projectId: 'proj_sandbox_1',
+    userId: 'sandbox-user-id',
+    name: 'Sandbox Developer',
+    email: 'developer@gmail.com',
+    role: 'maintainer',
+    createdAt: now
+  });
+
+  // Setup sample project versions
+  inMemoryProjectVersions.push({
+    id: 'pv_1',
+    projectId: 'proj_sandbox_1',
+    version: 'v1.0.0',
+    changelog: 'Initial production release of the Developer Platform resource hub.',
+    releaseNotes: 'Includes multi-tenant workspaces, GitHub repo syncing, and interactive roadmaps.',
+    createdAt: new Date(now.getTime() - 3600000 * 72)
+  });
+
+  // Setup sample sync history
+  inMemoryProjectSyncHistories.push({
+    id: 'psh_1',
+    projectId: 'proj_sandbox_1',
+    status: 'success',
+    message: 'Synced 45 stars, 8 forks, 2 issues, and 2 commits from satyajitmishra-dev/Study-Material.',
+    type: 'auto',
     createdAt: now
   });
 };
@@ -544,8 +620,8 @@ class PublicDatabase {
         orderBy.bookmarks = { _count: sortOrder };
       }
 
-      const [projects, total] = await Promise.all([
-        prisma.cmsProject.findMany({
+      try {
+        const projects = await prisma.cmsProject.findMany({
           where,
           orderBy,
           skip: offset,
@@ -564,13 +640,16 @@ class PublicDatabase {
               }
             }
           }
-        }),
-        prisma.cmsProject.count({ where })
-      ]);
+        });
+        const total = await prisma.cmsProject.count({ where });
+        return { items: projects, total };
+      } catch (err: any) {
+        console.warn('[PublicDatabase] getPublicPosts query warning (pool busy):', err.message);
+      }
+    }
 
-      return { items: projects, total };
-    } else {
-      // Memory queries fallback
+    // In-memory / sandbox fallback when Postgres query fails or prisma is not available
+    {
       // In sandbox mode, mock retrieving all published projects.
       // Use standard sandbox mock data.
       let list = [
@@ -821,7 +900,7 @@ class PublicDatabase {
   }
 
   // --- DEVELOPER PLATFORM QUERIES ---
-  async getDeveloperProfile(username: string): Promise<any | null> {
+  async getDeveloperProfile(username: string, currentUserId?: string): Promise<any | null> {
     const prisma = this.prisma;
     if (prisma) {
       const user = await prisma.user.findUnique({
@@ -832,8 +911,13 @@ class PublicDatabase {
       });
       if (!user) return null;
 
+      // 1. Enforce Profile Visibility Privacy
+      if (user.profileVisibility === 'private' && user.id !== currentUserId) {
+        return null; // Private profile cannot be viewed by other users
+      }
+
       // Fetch projects owned by user (via organization ownerId)
-      const projects = await prisma.project.findMany({
+      let projects = await prisma.project.findMany({
         where: { organization: { ownerId: user.id }, visibility: 'public' },
         include: {
           integrations: true,
@@ -850,31 +934,86 @@ class PublicDatabase {
       });
 
       // Fetch followers/following
-      const followers = await prisma.follow.findMany({
+      let followers = await prisma.follow.findMany({
         where: { targetType: 'DEVELOPER', targetId: user.id },
         include: { user: true }
       });
 
-      const following = await prisma.follow.findMany({
+      let following = await prisma.follow.findMany({
         where: { userId: user.id }
       });
+
+      // Fetch bookmarked posts
+      let bookmarks = await prisma.bookmark.findMany({
+        where: { userId: user.id },
+        include: {
+          project: {
+            include: { categoryRef: true }
+          }
+        }
+      });
+
+      // 2. Enforce Hidden Fields Privacy filtration (when viewer is not owner)
+      const isOwner = user.id === currentUserId;
+      if (!isOwner) {
+        const hidden = (user.hiddenFields as string[]) || [];
+        if (hidden.includes('email')) {
+          user.email = null;
+        }
+        if (hidden.includes('followers')) {
+          followers = [];
+        }
+        if (hidden.includes('following')) {
+          following = [];
+        }
+        if (hidden.includes('projects')) {
+          projects = [];
+        }
+        if (user.authorProfile) {
+          if (hidden.includes('location')) {
+            user.authorProfile.location = null;
+          }
+          if (hidden.includes('socialLinks')) {
+            user.authorProfile.website = null;
+            user.authorProfile.github = null;
+            user.authorProfile.linkedin = null;
+            user.authorProfile.twitter = null;
+            user.authorProfile.portfolio = null;
+            user.authorProfile.youtube = null;
+            user.authorProfile.discord = null;
+            user.authorProfile.hashnode = null;
+            user.authorProfile.devto = null;
+            user.authorProfile.leetcode = null;
+            user.authorProfile.codeforces = null;
+            user.authorProfile.codechef = null;
+            user.authorProfile.hackerrank = null;
+            user.authorProfile.medium = null;
+          }
+        }
+      }
 
       return {
         user,
         projects,
         posts,
         followers,
-        following
+        following,
+        bookmarks
       };
     }
 
     // In-memory fallback
     const memoryUser = [
-      { id: 'sandbox-admin-id', name: 'Sandbox Administrator', username: 'satyajit', email: 'admin@gmail.com', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80' },
-      { id: 'sandbox-user-id', name: 'Sandbox Developer', username: 'developer', email: 'developer@gmail.com', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80' }
+      { id: 'sandbox-admin-id', name: 'Sandbox Administrator', username: 'satyajit', email: 'admin@gmail.com', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80', profileVisibility: 'public', hiddenFields: [] },
+      { id: 'sandbox-user-id', name: 'Sandbox Developer', username: 'developer', email: 'developer@gmail.com', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80', profileVisibility: 'public', hiddenFields: [] }
     ].find(u => u.username.toLowerCase() === username.toLowerCase());
 
     if (!memoryUser) return null;
+
+    // Enforce visibility for mockup
+    if (memoryUser.profileVisibility === 'private' && memoryUser.id !== currentUserId) {
+      return null;
+    }
 
     let profile = inMemoryAuthorProfiles.find(ap => ap.userId === memoryUser.id);
     if (!profile) {
@@ -894,10 +1033,10 @@ class PublicDatabase {
         achievements: ['open_source_contributor', 'ai_wizard'],
         createdAt: new Date(),
         updatedAt: new Date()
-      };
+      } as any;
     }
 
-    const projects = inMemoryProjects.filter(p => p.organizationId === 'org_sandbox_1');
+    let projects = inMemoryProjects.filter(p => p.organizationId === 'org_sandbox_1');
     const mappedProjects = projects.map(p => {
       const prRoadmaps = inMemoryRoadmaps.filter(r => r.projectId === p.id).map(r => ({
         ...r,
@@ -927,16 +1066,79 @@ class PublicDatabase {
       }
     ].filter(post => post.authorId === memoryUser.id);
 
-    const followers = inMemoryFollows.filter(f => f.targetType === 'DEVELOPER' && f.targetId === memoryUser.id);
-    const following = inMemoryFollows.filter(f => f.userId === memoryUser.id);
+    let followers = inMemoryFollows.filter(f => f.targetType === 'DEVELOPER' && f.targetId === memoryUser.id);
+    let following = inMemoryFollows.filter(f => f.userId === memoryUser.id);
+    let bookmarks = inMemoryBookmarks.filter(b => b.userId === memoryUser.id);
+
+    // Enforce Hidden Fields filtration
+    const isOwner = memoryUser.id === currentUserId;
+    if (!isOwner) {
+      const hidden = (memoryUser.hiddenFields as string[]) || [];
+      if (hidden.includes('email')) {
+        memoryUser.email = 'hidden@example.com';
+      }
+      if (hidden.includes('followers')) {
+        followers = [];
+      }
+      if (hidden.includes('following')) {
+        following = [];
+      }
+      if (hidden.includes('projects')) {
+        projects = [];
+      }
+      if (profile) {
+        if (hidden.includes('location')) {
+          profile.location = null;
+        }
+        if (hidden.includes('socialLinks')) {
+          profile.website = null;
+          profile.github = null;
+          profile.linkedin = null;
+          profile.twitter = null;
+          profile.portfolio = null;
+        }
+      }
+    }
 
     return {
       user: { ...memoryUser, authorProfile: profile },
       projects: mappedProjects,
       posts,
       followers,
-      following
+      following,
+      bookmarks
     };
+  }
+
+  // --- REDIRECT & HISTORY QUERIES ---
+  async getCmsRedirect(sourcePath: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.cmsRedirect.findUnique({
+        where: { sourcePath }
+      });
+    }
+    return inMemoryCmsRedirects.find(r => r.sourcePath === sourcePath) || null;
+  }
+
+  async createCmsRedirect(sourcePath: string, targetPath: string): Promise<any> {
+    const prisma = this.prisma;
+    const now = new Date();
+    if (prisma) {
+      return prisma.cmsRedirect.upsert({
+        where: { sourcePath },
+        update: { targetPath, updatedAt: now },
+        create: { sourcePath, targetPath, statusCode: 301 }
+      });
+    }
+    const idx = inMemoryCmsRedirects.findIndex(r => r.sourcePath === sourcePath);
+    const item = { id: idx >= 0 ? inMemoryCmsRedirects[idx].id : `red_${Date.now()}`, sourcePath, targetPath, statusCode: 301, createdAt: now, updatedAt: now };
+    if (idx >= 0) {
+      inMemoryCmsRedirects[idx] = item;
+    } else {
+      inMemoryCmsRedirects.push(item);
+    }
+    return item;
   }
 
   async getShowcaseProjects(): Promise<any[]> {
@@ -966,6 +1168,12 @@ class PublicDatabase {
         },
         include: {
           integrations: true,
+          contributors: {
+            orderBy: { createdAt: 'asc' },
+            include: { user: { include: { authorProfile: true } } }
+          },
+          syncHistory: { orderBy: { createdAt: 'desc' }, take: 20 },
+          versions: { orderBy: { createdAt: 'desc' } },
           roadmaps: {
             orderBy: { orderIndex: 'asc' },
             include: { tasks: { orderBy: { orderIndex: 'asc' } } }
@@ -1022,9 +1230,16 @@ class PublicDatabase {
       authorProfile: inMemoryAuthorProfiles.find(ap => ap.userId === 'sandbox-admin-id')
     };
 
+    const contributors = inMemoryProjectContributors.filter(c => c.projectId === project.id);
+    const syncHistory = inMemoryProjectSyncHistories.filter(s => s.projectId === project.id);
+    const versions = inMemoryProjectVersions.filter(v => v.projectId === project.id);
+
     return {
       ...project,
       integrations,
+      contributors,
+      syncHistory,
+      versions,
       roadmaps,
       timelines,
       cmsProjects,

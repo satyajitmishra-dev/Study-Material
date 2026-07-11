@@ -603,6 +603,33 @@ export const automationDb = {
     return inMemoryVersions.filter(v => v.draftId === draftId).sort((a, b) => a.versionIndex - b.versionIndex);
   },
 
+  async restoreDraftVersion(draftId: string, versionId: string): Promise<any> {
+    const prisma = getActivePrisma();
+    if (prisma) {
+      const ver = await prisma.contentDraftVersion.findUnique({ where: { id: versionId } });
+      if (!ver) throw new Error('Version not found');
+      return prisma.contentDraft.update({
+        where: { id: draftId },
+        data: {
+          title: ver.title,
+          content: ver.content,
+          updatedAt: new Date()
+        }
+      });
+    }
+    const ver = inMemoryVersions.find(v => v.id === versionId);
+    if (!ver) throw new Error('Version not found');
+    const idx = inMemoryDrafts.findIndex(d => d.id === draftId);
+    if (idx === -1) throw new Error('Draft not found');
+    inMemoryDrafts[idx] = {
+      ...inMemoryDrafts[idx],
+      title: ver.title,
+      content: ver.content,
+      updatedAt: new Date()
+    };
+    return inMemoryDrafts[idx];
+  },
+
   async getScheduledDrafts(): Promise<any[]> {
     const prisma = getActivePrisma();
     const now = new Date();

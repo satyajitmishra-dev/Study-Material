@@ -30,9 +30,11 @@ import {
   Layers, 
   Smartphone,
   Check,
-  Zap
+  Zap,
+  History
 } from 'lucide-react';
 import { Card, Button, Input, Tabs } from '@/components/ui/core';
+import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer';
 import { 
   saveRepositoryAction, 
   deleteRepositoryAction, 
@@ -44,7 +46,9 @@ import {
   publishDraftAction, 
   saveAiMemoryAction, 
   saveTemplateAction, 
-  forceQueueProcessAction 
+  forceQueueProcessAction,
+  generateMultiPlatformDraftsAction,
+  restoreDraftVersionAction
 } from '@/lib/actions/automation';
 
 interface AutomationClientProps {
@@ -78,6 +82,9 @@ export default function AutomationClient({ initialData }: AutomationClientProps)
   const [queueLogs, setQueueLogs] = useState<string[]>([]);
   const [isRegeneratingDraft, setIsRegeneratingDraft] = useState<string | null>(null);
   const [isPublishingDraft, setIsPublishingDraft] = useState<string | null>(null);
+  const [isGeneratingMultiPlatform, setIsGeneratingMultiPlatform] = useState(false);
+  const [customGenerationTopic, setCustomGenerationTopic] = useState('');
+  const [isRestoringVersion, setIsRestoringVersion] = useState<string | null>(null);
 
   // Repository Form Modal
   const [showRepoModal, setShowRepoModal] = useState(false);
@@ -361,6 +368,36 @@ export default function AutomationClient({ initialData }: AutomationClientProps)
       alert(`Publishing failed: ${res.error}`);
     }
     setIsPublishingDraft(null);
+  };
+
+  const handleGenerateMultiPlatform = async (repositoryId: string) => {
+    setIsGeneratingMultiPlatform(true);
+    const res = await generateMultiPlatformDraftsAction(repositoryId, customGenerationTopic || undefined);
+    if (res.success && res.drafts) {
+      setDrafts(prev => [...res.drafts, ...prev]);
+      setCustomGenerationTopic('');
+      alert(`Successfully generated ${res.drafts.length} multi-platform content drafts (LinkedIn, X, Dev.to, Release Notes, Newsletter)!`);
+    } else {
+      alert(res.error || 'Failed to generate multi-platform drafts');
+    }
+    setIsGeneratingMultiPlatform(false);
+  };
+
+  const handleRestoreDraftVersion = async (draftId: string, versionId: string) => {
+    setIsRestoringVersion(versionId);
+    const res = await restoreDraftVersionAction(draftId, versionId);
+    if (res.success && res.draft) {
+      setDrafts(prev => prev.map(d => d.id === draftId ? res.draft : d));
+      if (editingDraft?.id === draftId) {
+        setEditingDraft(res.draft);
+        setDraftContent(res.draft.content);
+        setDraftTitle(res.draft.title);
+      }
+      alert('Draft restored to selected version!');
+    } else {
+      alert(res.error || 'Failed to restore draft version');
+    }
+    setIsRestoringVersion(null);
   };
 
   // Save AI Memory
@@ -666,6 +703,40 @@ export default function AutomationClient({ initialData }: AutomationClientProps)
                 <h2 className="text-[16px] font-bold text-warm-white">Generated Content Drafts</h2>
                 <div className="text-[12px] text-stone">Total drafts: {drafts.length}</div>
               </div>
+
+              {/* AI Multi-Platform Content Studio Panel */}
+              <Card className="bg-onyx/90 border-accent-cyan/30 p-5 space-y-4 shadow-premium">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <Sparkles className="w-5 h-5 text-accent-cyan shrink-0" />
+                    <div>
+                      <h3 className="text-[14px] font-extrabold text-warm-white">AI Multi-Platform Content Studio</h3>
+                      <p className="text-[11.5px] text-stone">Draft-First Generator: Creates tailored LinkedIn, X/Twitter, Dev.to, Release Notes, and Newsletter drafts instantly.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+                  <Input
+                    placeholder="Enter topic or release highlight (e.g. Launched new Markdown renderer & AI drafting suite...)"
+                    value={customGenerationTopic}
+                    onChange={(e) => setCustomGenerationTopic(e.target.value)}
+                    className="flex-1 text-[13px]"
+                  />
+                  <Button
+                    variant="primary"
+                    className="shrink-0 flex items-center gap-2 font-bold"
+                    onClick={() => {
+                      const repoId = repos[0]?.id || 'repo_sandbox_1';
+                      handleGenerateMultiPlatform(repoId);
+                    }}
+                    disabled={isGeneratingMultiPlatform}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    {isGeneratingMultiPlatform ? 'Generating 5 Formats...' : 'Generate All Formats'}
+                  </Button>
+                </div>
+              </Card>
 
               {drafts.length === 0 ? (
                 <Card className="py-12 text-center">
@@ -1203,9 +1274,7 @@ export default function AutomationClient({ initialData }: AutomationClientProps)
                   {!['linkedin', 'twitter'].includes(editingDraft.platform) && (
                     <div className="bg-[#121314] border border-white/5 rounded-xl p-5 mx-auto text-[13px] font-sans max-w-xl text-stone space-y-3 leading-relaxed font-light">
                       <h2 className="text-lg font-extrabold text-warm-white border-b border-white/5 pb-1.5">{draftTitle}</h2>
-                      <div className="whitespace-pre-wrap font-mono text-[11px] bg-charcoal/10 p-3 rounded border border-white/5 overflow-x-auto">
-                        {draftContent}
-                      </div>
+                      <MarkdownRenderer content={draftContent} />
                     </div>
                   )}
                 </div>
@@ -1242,6 +1311,27 @@ export default function AutomationClient({ initialData }: AutomationClientProps)
                     <span className="text-[11px] text-stone">Auditing draft content...</span>
                   )}
                 </div>
+              </div>
+
+              {/* Version Rollback & Undo History */}
+              <div className="p-3 rounded-lg bg-charcoal/15 border border-white/5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-[11.5px] text-stone">
+                  <History className="w-4 h-4 text-accent-cyan shrink-0" />
+                  <span>Draft Versioning: Session edits saved automatically. Click to restore original generated baseline.</span>
+                </div>
+                <Button 
+                  variant="secondary" 
+                  className="py-1 px-3 text-[11px] shrink-0" 
+                  type="button"
+                  onClick={() => {
+                    if (draftContentHistory.length > 0) {
+                      setDraftContent(draftContentHistory[0]);
+                      runContentQualityChecks(draftContentHistory[0], editingDraft.platform, draftTitle);
+                    }
+                  }}
+                >
+                  Restore Initial Baseline
+                </Button>
               </div>
 
               {/* Scheduling Section */}
