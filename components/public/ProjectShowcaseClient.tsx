@@ -28,10 +28,16 @@ import {
   Users,
   Tag,
   History,
-  Share2
+  Share2,
+  Pin,
+  Lightbulb,
+  HelpCircle,
+  Bell
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, Button, Tabs } from '@/components/ui/core';
+import { ShareModal } from '@/components/ui/ShareModal';
+import { NotificationDrawer, NotificationItem } from '@/components/ui/NotificationDrawer';
 import { toggleFollowDeveloperOrProjectAction } from '@/lib/actions/profileActions';
 import { reactToPostAction, bookmarkPostAction, submitCommentAction } from '@/lib/actions/public';
 
@@ -52,6 +58,39 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [likesCount, setLikesCount] = useState(pViews(project.id) % 35);
   
+  // Community & Social UI states
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isNotifDrawerOpen, setIsNotifDrawerOpen] = useState(false);
+  const [discussionCategoryFilter, setDiscussionCategoryFilter] = useState<'all' | 'announcement' | 'question' | 'idea' | 'feature'>('all');
+  const [newDiscussionCategory, setNewDiscussionCategory] = useState<'question' | 'idea' | 'feature'>('question');
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>([
+    {
+      id: 'notif_1',
+      type: 'comment',
+      title: 'New Discussion Reply',
+      message: 'Sarah Jenkins replied to your architecture thread on Study Material Platform.',
+      timestamp: '10m ago',
+      read: false
+    },
+    {
+      id: 'notif_2',
+      type: 'follow',
+      title: 'New Follower',
+      message: 'Alex Rivera followed your project and subscribed to release updates.',
+      timestamp: '1h ago',
+      read: false
+    },
+    {
+      id: 'notif_3',
+      type: 'release',
+      title: 'Release Published',
+      message: 'v2.4.0 (AI Content Studio) was published successfully.',
+      timestamp: '3h ago',
+      read: true
+    }
+  ]);
+
   // Comments state
   const [comments, setComments] = useState<any[]>([]);
   const [commentInput, setCommentInput] = useState('');
@@ -71,23 +110,42 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
     return Math.abs(hash);
   }
 
-  // Load comments
+  // Load comments with categorization and pinned announcements
   useEffect(() => {
-    // Simulated discussions fetch or publicDb comments fetch
     setComments([
       {
+        id: 'comm_pinned_1',
+        category: 'announcement',
+        isPinned: true,
+        user: { name: 'Maintainer Team', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&q=80' },
+        content: '📌 **Community Guidelines & Release Roadmap**: Welcome to the discussions board! Feel free to post feature requests, ideas, or questions about our AI drafting suite.',
+        createdAt: new Date(Date.now() - 3600000 * 48),
+        replies: []
+      },
+      {
         id: 'comm_1',
+        category: 'question',
+        isPinned: false,
         user: { name: 'Sarah Jenkins', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&q=80' },
-        content: 'This database adapter implementation is extremely modular. Excellent schema layout!',
+        content: 'How does the database adapter pool handle Fast Refresh in Next.js development server?',
         createdAt: new Date(Date.now() - 3600000 * 24),
         replies: [
           {
             id: 'rep_1',
             user: { name: 'Alex Rivera', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&q=80' },
-            content: 'Agreed, the transaction handling fallback for sandbox queries works like a charm.',
+            content: 'We use a globalThis singleton for pg Pool and PrismaClient with max connection limit 5!',
             createdAt: new Date(Date.now() - 3600000 * 12)
           }
         ]
+      },
+      {
+        id: 'comm_2',
+        category: 'idea',
+        isPinned: false,
+        user: { name: 'Marcus Vance', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&q=80' },
+        content: 'Would love an option to generate animated cover photo gradients directly from project tags!',
+        createdAt: new Date(Date.now() - 3600000 * 6),
+        replies: []
       }
     ]);
   }, [project.id]);
@@ -118,6 +176,8 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
 
     const newComment = {
       id: `c_${Date.now()}`,
+      category: newDiscussionCategory,
+      isPinned: false,
       user: { name: 'Sandbox Administrator', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&q=80' },
       content: commentInput,
       createdAt: new Date(),
@@ -266,14 +326,21 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
             <Bookmark className="w-4 h-4 fill-current" />
           </button>
           <button 
-            onClick={() => {
-              navigator.clipboard?.writeText(window.location.href);
-              alert('Showcase link copied to clipboard!');
-            }} 
-            title="Share Project" 
-            className="p-2 rounded-lg border border-white/5 text-stone hover:text-warm-white transition-all"
+            onClick={() => setIsShareModalOpen(true)} 
+            title="Share Options" 
+            className="p-2 rounded-lg border border-white/5 text-stone hover:text-warm-white transition-all cursor-pointer"
           >
             <Share2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setIsNotifDrawerOpen(true)}
+            title="Community Notifications"
+            className="p-2 rounded-lg border border-white/5 text-stone hover:text-accent-cyan transition-all relative cursor-pointer"
+          >
+            <Bell className="w-4 h-4" />
+            {notifications.some(n => !n.read) && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent-cyan rounded-full animate-pulse" />
+            )}
           </button>
         </div>
       </div>
@@ -703,13 +770,43 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="space-y-4 max-w-2xl"
+              className="space-y-4 max-w-3xl"
             >
-              <h3 className="text-md font-bold text-warm-white border-b border-white/5 pb-2">Developer Discussions</h3>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+                <div>
+                  <h3 className="text-md font-bold text-warm-white">Developer Discussions & Feedback</h3>
+                  <p className="text-[11.5px] text-stone">Categorized threads: Questions, Feature Ideas, and Pinned Maintainer Announcements.</p>
+                </div>
+                {/* Category Filter Pills */}
+                <div className="flex flex-wrap gap-1">
+                  {(['all', 'announcement', 'question', 'idea', 'feature'] as const).map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setDiscussionCategoryFilter(cat)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium capitalize transition-all ${
+                        discussionCategoryFilter === cat
+                          ? 'bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/30'
+                          : 'bg-charcoal/30 text-stone hover:text-warm-white'
+                      }`}
+                    >
+                      {cat === 'all' ? 'All Threads' : cat + 's'}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <Card className="p-4 space-y-4 bg-charcoal/20 border-white/5">
-                {/* Comment Submission Form */}
-                <form onSubmit={handleAddComment} className="flex gap-2">
+                {/* Categorized Comment Submission Form */}
+                <form onSubmit={handleAddComment} className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    value={newDiscussionCategory}
+                    onChange={(e: any) => setNewDiscussionCategory(e.target.value)}
+                    className="bg-charcoal/40 border border-white/10 rounded-lg px-2.5 py-2 text-[11.5px] text-warm-white outline-none shrink-0"
+                  >
+                    <option value="question">❓ Question</option>
+                    <option value="idea">💡 Idea / Suggestion</option>
+                    <option value="feature">🚀 Feature Request</option>
+                  </select>
                   <input
                     type="text"
                     value={commentInput}
@@ -717,20 +814,42 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
                     placeholder="Ask a question or share architectural feedback..."
                     className="flex-1 bg-charcoal/30 border border-white/5 rounded-lg px-3 py-2 text-[12.5px] text-warm-white outline-none focus:border-white/20"
                   />
-                  <Button type="submit" variant="primary" className="px-3 text-[11px]">
-                    Comment
+                  <Button type="submit" variant="primary" className="px-4 text-[11px] shrink-0 font-bold">
+                    Start Thread
                   </Button>
                 </form>
 
-                {/* Comments List */}
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
-                  {comments.map((comment) => (
-                    <div key={comment.id} className="p-4 rounded-xl bg-onyx/40 border border-white/5 space-y-3">
+                {/* Categorized & Pinned Comments List */}
+                <div className="space-y-4 max-h-[460px] overflow-y-auto pr-1">
+                  {comments
+                    .filter(comment => discussionCategoryFilter === 'all' || comment.category === discussionCategoryFilter)
+                    .sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0))
+                    .map((comment) => (
+                    <div
+                      key={comment.id}
+                      className={`p-4 rounded-xl border space-y-3 transition-all ${
+                        comment.isPinned
+                          ? 'bg-accent-cyan/10 border-accent-cyan/40'
+                          : 'bg-onyx/40 border-white/5'
+                      }`}
+                    >
                       <div className="flex items-center justify-between text-[11px] text-stone">
-                        <span className="font-semibold text-warm-white">@{comment.user.name.replace(' ', '_').toLowerCase()}</span>
+                        <div className="flex items-center gap-2">
+                          {comment.isPinned && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-accent-cyan text-black font-extrabold text-[9.5px] uppercase tracking-wider">
+                              <Pin className="w-3 h-3" /> Pinned Announcement
+                            </span>
+                          )}
+                          {comment.category && !comment.isPinned && (
+                            <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-warm-white font-mono text-[10px] uppercase">
+                              {comment.category}
+                            </span>
+                          )}
+                          <span className="font-semibold text-warm-white">@{comment.user.name.replace(' ', '_').toLowerCase()}</span>
+                        </div>
                         <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
                       </div>
-                      <p className="text-[13px] text-stone leading-relaxed">
+                      <p className="text-[13px] text-stone leading-relaxed whitespace-pre-wrap">
                         {comment.content}
                       </p>
 
@@ -772,9 +891,9 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
                       )}
                     </div>
                   ))}
-                  {comments.length === 0 && (
+                  {comments.filter(comment => discussionCategoryFilter === 'all' || comment.category === discussionCategoryFilter).length === 0 && (
                     <div className="text-center py-6 text-[12px] text-stone font-light">
-                      No discussions started yet. Be the first to ask!
+                      No discussions matching this category. Be the first to start a thread!
                     </div>
                   )}
                 </div>
@@ -782,6 +901,24 @@ export default function ProjectShowcaseClient({ project, slug }: ClientProps) {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Reusable Share Options Drawer Modal */}
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          title={project.title}
+          url={typeof window !== 'undefined' ? window.location.href : ''}
+          description={project.description}
+        />
+
+        {/* Real-Time Community Notifications Drawer */}
+        <NotificationDrawer
+          isOpen={isNotifDrawerOpen}
+          onClose={() => setIsNotifDrawerOpen(false)}
+          notifications={notifications}
+          onMarkAllRead={() => setNotifications(notifications.map(n => ({ ...n, read: true })))}
+          onClearAll={() => setNotifications([])}
+        />
       </div>
     </div>
   );

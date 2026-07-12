@@ -24,7 +24,10 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  BarChart as RechartsBarChart,
+  Bar,
+  Legend
 } from 'recharts';
 import { Card, Button } from '@/components/ui/core';
 import { CmsAnalytics } from '@/lib/database/cmsDb';
@@ -134,6 +137,14 @@ export default function AnalyticsClient({ initialAnalytics }: AnalyticsClientPro
     { name: 'Mobile', value: 27, color: '#8b5cf6' },  // Violet
     { name: 'Tablet', value: 8, color: '#ec4899' }    // Pink
   ];
+
+  const readingTimeData = useMemo(() => [
+    { name: 'AI Studio Guide', readMin: 4.5, engagement: 88 },
+    { name: 'Next.js Adapter', readMin: 6.2, engagement: 94 },
+    { name: 'Prisma Pool Fix', readMin: 3.1, engagement: 79 },
+    { name: 'Markdown Parser', readMin: 5.0, engagement: 91 },
+    { name: 'SEO Architecture', readMin: 7.4, engagement: 96 }
+  ], []);
 
   // CSV Exporter Action helper
   const handleExportCSV = () => {
@@ -405,6 +416,48 @@ export default function AnalyticsClient({ initialAnalytics }: AnalyticsClientPro
         </Card>
 
       </div>
+
+      {/* Reading Time vs. Engagement Correlation Chart */}
+      <Card className="p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-white/5 pb-3">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-accent-cyan" />
+            <h3 className="text-[13px] font-bold text-warm-white uppercase tracking-wider">
+              Article Reading Time vs. Engagement Correlation
+            </h3>
+          </div>
+          <span className="text-[11px] font-mono text-stone">Avg reading velocity & completion rate</span>
+        </div>
+
+        <div className="h-64 w-full">
+          {mounted ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsBarChart data={readingTimeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                <XAxis dataKey="name" stroke="#71717a" fontSize={11} tickLine={false} />
+                <YAxis stroke="#71717a" fontSize={11} tickLine={false} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#09090b', 
+                    borderColor: 'rgba(255,255,255,0.1)', 
+                    borderRadius: '12px',
+                    color: '#fafaf9',
+                    fontSize: '11px',
+                    fontFamily: 'monospace'
+                  }} 
+                />
+                <Legend wrapperStyle={{ fontSize: '11px', color: '#a1a1aa' }} />
+                <Bar name="Reading Time (min)" dataKey="readMin" fill="#06b6d4" radius={[4, 4, 0, 0]} />
+                <Bar name="Engagement Score (%)" dataKey="engagement" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+              </RechartsBarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-stone text-[11px] animate-pulse">
+              Initializing reading analytics...
+            </div>
+          )}
+        </div>
+      </Card>
 
     </div>
   );

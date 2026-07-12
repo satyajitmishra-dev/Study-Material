@@ -103,3 +103,17 @@ export const DeveloperProfileSchema = z.object({
   experienceLevel: z.string().optional(),
   availability: z.string().optional(),
 });
+
+/**
+ * Sanitizes markdown content against XSS vectors (dangerous URL schemes and event handlers).
+ */
+export function sanitizeMarkdownXSS(markdown: string): string {
+  if (!markdown) return '';
+  let safe = markdown;
+  // Neutralize javascript: / vbscript: / data: schemes in links or embeds
+  safe = safe.replace(/href\s*=\s*["']?\s*(?:javascript|vbscript|data:text\/html):[^"'\s>]*/gi, 'href="#"');
+  safe = safe.replace(/src\s*=\s*["']?\s*(?:javascript|vbscript|data:text\/html):[^"'\s>]*/gi, 'src=""');
+  // Strip inline event attributes like onerror=, onload=, onclick=
+  safe = safe.replace(/\b(?:on\w+)\s*=\s*["'][^"']*["']/gi, '');
+  return safe;
+}
