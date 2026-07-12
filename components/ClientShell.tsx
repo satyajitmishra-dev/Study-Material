@@ -7,6 +7,7 @@ import Link from 'next/link';
 import FloatingDock from './FloatingDock';
 import CommandPalette from './CommandPalette';
 import UserDropdown from './UserDropdown';
+import CreateMenuDialog from './ui/CreateMenuDialog';
 import { Button } from '@/components/ui/core';
 
 interface ClientShellProps {
@@ -15,7 +16,9 @@ interface ClientShellProps {
 
 export default function ClientShell({ children }: ClientShellProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const pathname = usePathname();
+
   const router = useRouter();
   
   const { data: session, status } = useSession();
@@ -93,9 +96,15 @@ export default function ClientShell({ children }: ClientShellProps) {
       </main>
 
       {/* Spatial Overlay Components (Dock hidden on Admin pages to avoid clutter) */}
-      {!isAdminPage && <FloatingDock onSearchClick={() => setIsSearchOpen(true)} />}
+      {!isAdminPage && (
+        <FloatingDock 
+          onSearchClick={() => setIsSearchOpen(true)} 
+          onCreateClick={() => setIsCreateOpen(true)} 
+        />
+      )}
       
       <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      <CreateMenuDialog isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
     </div>
   );
 }

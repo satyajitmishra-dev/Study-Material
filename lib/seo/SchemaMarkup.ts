@@ -191,4 +191,43 @@ export class SchemaMarkup {
       'image': data.logo || undefined
     };
   }
+
+  static qa(data: {
+    title: string;
+    text: string;
+    upvoteCount: number;
+    answers: Array<{ text: string; upvoteCount: number; url: string }>;
+    acceptedAnswerIndex?: number;
+  }) {
+    const mainEntity: any = {
+      '@type': 'Question',
+      'name': data.title,
+      'text': data.text,
+      'answerCount': data.answers.length,
+      'upvoteCount': data.upvoteCount,
+    };
+    if (data.acceptedAnswerIndex !== undefined && data.answers[data.acceptedAnswerIndex]) {
+      const accepted = data.answers[data.acceptedAnswerIndex];
+      mainEntity.acceptedAnswer = {
+        '@type': 'Answer',
+        'text': accepted.text,
+        'upvoteCount': accepted.upvoteCount,
+        'url': accepted.url
+      };
+    }
+    mainEntity.suggestedAnswer = data.answers
+      .filter((_, idx) => idx !== data.acceptedAnswerIndex)
+      .map(ans => ({
+        '@type': 'Answer',
+        'text': ans.text,
+        'upvoteCount': ans.upvoteCount,
+        'url': ans.url
+      }));
+
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'QAPage',
+      'mainEntity': mainEntity
+    };
+  }
 }

@@ -29,7 +29,7 @@ export default async function PublishingHomePage() {
   const tags = await publicDb.getTags();
   
   // Fetch initial posts (published)
-  const { items: initialPosts } = await publicDb.getPublicPosts({ limit: 10 });
+  const { items: initialFeed } = await publicDb.getUniversalFeed({ sortBy: 'trending', limit: 15 });
 
   const orgSchema = SchemaMarkup.organization();
   const webSchema = SchemaMarkup.website();
@@ -45,7 +45,7 @@ export default async function PublishingHomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(webSchema) }}
       />
       <HomeClient 
-        initialPosts={initialPosts}
+        initialFeed={initialFeed}
         categories={categories}
         tags={tags}
         layout={layout}

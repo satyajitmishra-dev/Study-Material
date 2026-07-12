@@ -2,94 +2,81 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, CornerDownLeft, Sparkles, FolderDot, History, ArrowUpRight } from 'lucide-react';
+import { 
+  Search, 
+  CornerDownLeft, 
+  Sparkles, 
+  FolderDot, 
+  History, 
+  ArrowUpRight, 
+  ChevronRight, 
+  SlidersHorizontal,
+  Bookmark,
+  Code2,
+  FileText,
+  Compass,
+  Users,
+  Award,
+  Calendar,
+  CheckCircle,
+  MessageSquare
+} from 'lucide-react';
 import Link from 'next/link';
-import { logSearchQueryAction } from '@/lib/actions/seoActions';
+import { Card, Button } from '@/components/ui/core';
+import { SearchIndex, SearchDocument } from '@/lib/search/SearchIndex';
 
 export default function SearchClient() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [allPosts, setAllPosts] = useState<any[]>([]);
-  
-  // Keyboard Selection Index
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [activeTab, setActiveTab] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Search Filters
+  const [filterDifficulty, setFilterDifficulty] = useState<string>('');
+  const [filterCategory, setFilterCategory] = useState<string>('');
+  const [filterVerified, setFilterVerified] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'relevance' | 'popularity' | 'newest'>('relevance');
 
   // Search History
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const popularSearches = ['Next.js 16', 'PPR', 'Framer Motion', 'Prisma Schema', 'Tailwind v4'];
+  const popularSearches = ['React', 'Next.js', 'Machine Learning', 'Docker', 'System Design'];
 
   useEffect(() => {
-    // Load recent searches
     const history = localStorage.getItem('sm_search_history');
     if (history) {
       setRecentSearches(JSON.parse(history));
     }
-
-    // Load initial published posts list
-    fetch('/api/v1/posts?limit=100')
-      .then(res => res.json())
-      .then(res => {
-        if (res.success) {
-          setAllPosts(res.data);
-        }
-      });
   }, []);
 
-  // Debouncing query
+  // Debounce query
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(query);
-    }, 250);
+    }, 200);
     return () => clearTimeout(handler);
   }, [query]);
 
-  // Log impressions on query change
-  useEffect(() => {
-    if (debouncedQuery.trim()) {
-      logSearchQueryAction(debouncedQuery, false);
-    }
-  }, [debouncedQuery]);
-
-  // Execute Search Match
-  useEffect(() => {
-    if (!debouncedQuery.trim()) {
-      setResults([]);
-      return;
-    }
-    setLoading(true);
-    const q = debouncedQuery.toLowerCase();
+  // Execute Search
+  const performSearch = (): SearchDocument[] => {
+    const filters: any = {};
+    if (filterDifficulty) filters.difficulty = filterDifficulty;
+    if (filterCategory) filters.category = filterCategory;
+    if (filterVerified === 'true') filters.isVerified = true;
+    if (filterVerified === 'false') filters.isVerified = false;
     
-    // Scan title, description, content
-    const matches = allPosts.filter(post => 
-      post.title.toLowerCase().includes(q) ||
-      post.description?.toLowerCase().includes(q) ||
-      post.content.toLowerCase().includes(q)
-    );
-
-    setResults(matches);
-    setSelectedIndex(-1);
-    setLoading(false);
-  }, [debouncedQuery, allPosts]);
-
-  // Keyboard navigation listeners
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (results.length === 0) return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIndex(prev => (prev + 1) % results.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex(prev => (prev - 1 + results.length) % results.length);
-    } else if (e.key === 'Enter') {
-      if (selectedIndex >= 0 && selectedIndex < results.length) {
-        e.preventDefault();
-        handleResultClick(query);
-        window.location.href = `/posts/${results[selectedIndex].slug}`;
-      }
+    if (activeTab !== 'all') {
+      // Map tabs to content types
+      filters.contentType = activeTab;
     }
+
+    return SearchIndex.search(debouncedQuery, filters, sortBy);
+  };
+
+  const results = performSearch();
+
+  const handleSuggestionClick = (term: string) => {
+    setQuery(term);
+    saveQueryToHistory(term);
   };
 
   const saveQueryToHistory = (term: string) => {
@@ -99,17 +86,23 @@ export default function SearchClient() {
     localStorage.setItem('sm_search_history', JSON.stringify(history));
   };
 
-  const handleResultClick = (term: string) => {
-    saveQueryToHistory(term);
-    logSearchQueryAction(term, true);
+  // Grouped results helper (for 'all' tab)
+  const groupResultsByType = (docs: SearchDocument[]) => {
+    const groups: Record<string, SearchDocument[]> = {};
+    docs.forEach(doc => {
+      if (!groups[doc.contentType]) {
+        groups[doc.contentType] = [];
+      }
+      groups[doc.contentType].push(doc);
+    });
+    return groups;
   };
 
-  const handleSuggestionClick = (term: string) => {
-    setQuery(term);
-    handleResultClick(term);
-  };
+  const groupedResults = groupResultsByType(results);
 
-  // Helper to highlight matched text query
+  // Retrieve available categories in search facets
+  const facets = SearchIndex.getFacets();
+
   const highlightMatch = (text: string, searchWord: string) => {
     if (!searchWord.trim()) return text;
     const regex = new RegExp(`(${searchWord.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
@@ -129,40 +122,144 @@ export default function SearchClient() {
     );
   };
 
+  const getDocIcon = (type: string) => {
+    switch (type) {
+      case 'project': return Code2;
+      case 'note': return FileText;
+      case 'roadmap': return Compass;
+      case 'discussion': return MessageSquare;
+      case 'event': return Calendar;
+      default: return Sparkles;
+    }
+  };
+
+  const formatTypeName = (type: string) => {
+    if (type === 'qa') return 'Q&As';
+    return type.charAt(0).toUpperCase() + type.slice(1) + 's';
+  };
+
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-12 space-y-8" onKeyDown={handleKeyDown}>
-      {/* Search Header */}
-      <div className="border-b border-white/5 pb-6">
-        <span className="text-[11px] font-semibold text-accent-cyan tracking-[0.2em] uppercase font-mono">Instant Queries</span>
-        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-warm-white mt-1">Search Palette</h1>
-        <p className="text-[13px] text-stone font-light mt-1">
-          Perform real-time full-text indexing queries. Use arrow keys to navigate and Enter to select.
-        </p>
+    <div className="w-full max-w-4xl mx-auto px-4 py-8 space-y-8">
+      
+      {/* 1. Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+        <div>
+          <span className="text-[10px] font-mono text-accent-cyan font-bold uppercase tracking-wider">Universal Palette</span>
+          <h1 className="text-3xl font-black tracking-tight text-warm-white mt-0.5">Search Center</h1>
+        </div>
+
+        {/* Filters Toggle & Sorts */}
+        <div className="flex items-center gap-3 self-start sm:self-center">
+          <Button 
+            variant="secondary" 
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-1.5 text-[11.5px] py-1.5 px-3"
+          >
+            <SlidersHorizontal className="w-4 h-4 text-stone" />
+            <span>Filters</span>
+          </Button>
+
+          <select
+            value={sortBy}
+            onChange={(e: any) => setSortBy(e.target.value)}
+            className="bg-charcoal/30 border border-white/5 rounded-lg px-2 py-1.5 text-[11.5px] text-stone outline-none cursor-pointer"
+          >
+            <option value="relevance">Relevance</option>
+            <option value="popularity">Popularity</option>
+            <option value="newest">Newest</option>
+          </select>
+        </div>
       </div>
 
-      {/* Large Input Box */}
+      {/* 2. Filters Grid Container */}
+      {showFilters && (
+        <motion.div 
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-xl border border-white/5 bg-charcoal/20"
+        >
+          <div className="space-y-1">
+            <span className="text-[9.5px] font-mono text-stone uppercase block font-bold">Category</span>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="w-full bg-charcoal/40 border border-white/5 rounded px-2 py-1 text-[12px] text-stone outline-none"
+            >
+              <option value="">All Categories</option>
+              {facets.categories.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[9.5px] font-mono text-stone uppercase block font-bold">Difficulty</span>
+            <select
+              value={filterDifficulty}
+              onChange={(e) => setFilterDifficulty(e.target.value)}
+              className="w-full bg-charcoal/40 border border-white/5 rounded px-2 py-1 text-[12px] text-stone outline-none"
+            >
+              <option value="">All Difficulties</option>
+              <option value="Beginner">Beginner</option>
+              <option value="Intermediate">Intermediate</option>
+              <option value="Advanced">Advanced</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[9.5px] font-mono text-stone uppercase block font-bold">Verification</span>
+            <select
+              value={filterVerified}
+              onChange={(e) => setFilterVerified(e.target.value)}
+              className="w-full bg-charcoal/40 border border-white/5 rounded px-2 py-1 text-[12px] text-stone outline-none"
+            >
+              <option value="">All Users</option>
+              <option value="true">Verified Only</option>
+              <option value="false">Standard Only</option>
+            </select>
+          </div>
+        </motion.div>
+      )}
+
+      {/* 3. Input Box */}
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone group-focus-within:text-accent-cyan transition-colors" />
         <input 
           type="text" 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by titles, slugs, tags, or guide content..." 
+          placeholder="Search blogs, roadmaps, codes, notes, certifications..." 
           className="w-full bg-charcoal/20 border border-white/5 rounded-2xl pl-12 pr-6 py-4 text-[14px] text-warm-white outline-none focus:border-white/10 placeholder:text-stone/40 font-light"
         />
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1.5 text-[10px] text-stone font-mono border border-white/5 px-2 py-1 rounded bg-charcoal/30">
-          <span>Navigation Active</span>
-          <CornerDownLeft className="w-3 h-3" />
-        </div>
       </div>
 
-      {/* Quick query presets */}
+      {/* 4. Tabs Selectors */}
+      <div className="flex gap-1.5 overflow-x-auto pb-2 border-b border-white/5 text-[11px] scrollbar-none">
+        {[
+          { id: 'all', label: 'All Results' },
+          { id: 'blog', label: 'Blogs' },
+          { id: 'project', label: 'Projects' },
+          { id: 'roadmap', label: 'Roadmaps' },
+          { id: 'note', label: 'Notes' },
+          { id: 'discussion', label: 'Discussions' },
+          { id: 'event', label: 'Events' }
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`px-3 py-1.5 rounded-lg shrink-0 cursor-pointer transition-colors ${activeTab === t.id ? 'bg-white/10 text-warm-white font-bold' : 'text-stone hover:text-warm-white'}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 5. Suggestions lists */}
       {!query && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-          {/* Recent searches */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
           {recentSearches.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-[11px] font-semibold text-stone uppercase tracking-wider font-mono flex items-center gap-1.5">
+              <h4 className="text-[10px] font-semibold text-stone uppercase tracking-wider font-mono flex items-center gap-1.5">
                 <History className="w-3.5 h-3.5" />
                 <span>Recent Searches</span>
               </h4>
@@ -181,11 +278,10 @@ export default function SearchClient() {
             </div>
           )}
 
-          {/* Popular searches */}
           <div className="space-y-3">
-            <h4 className="text-[11px] font-semibold text-stone uppercase tracking-wider font-mono flex items-center gap-1.5">
+            <h4 className="text-[10px] font-semibold text-stone uppercase tracking-wider font-mono flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-accent-cyan" />
-              <span>Popular Topics</span>
+              <span>Trending Technologies</span>
             </h4>
             <div className="space-y-1 bg-charcoal/10 border border-white/5 rounded-2xl p-3">
               {popularSearches.map((term, idx) => (
@@ -203,52 +299,133 @@ export default function SearchClient() {
         </div>
       )}
 
-      {/* Results Section */}
+      {/* 6. Results display */}
       <AnimatePresence mode="wait">
-        {results.length > 0 && (
+        {query && results.length > 0 && (
           <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="space-y-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-8"
           >
-            <span className="text-[10px] font-mono text-stone uppercase block">{results.length} matched articles</span>
-            <div className="bg-charcoal/10 border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
-              {results.map((post, idx) => {
-                const isActive = idx === selectedIndex;
+            {/* If tab is 'All', show segmented results by content types */}
+            {activeTab === 'all' ? (
+              Object.keys(groupedResults).map((type) => {
+                const Icon = getDocIcon(type);
+                const items = groupedResults[type];
                 return (
-                  <Link key={post.id} href={`/posts/${post.slug}`} onClick={() => handleResultClick(query)}>
-                    <div className={`p-4 transition-all cursor-pointer flex flex-col justify-between gap-1 text-left
-                      ${isActive ? 'bg-white/5 border-l-4 border-accent-cyan pl-3' : 'hover:bg-white/[0.01] border-l-4 border-transparent'}
-                    `}>
-                      <span className="text-[9px] font-mono text-accent-cyan uppercase">{post.categoryRef?.name || 'General'}</span>
-                      <h4 className="text-[14px] font-bold text-warm-white">
-                        {highlightMatch(post.title, debouncedQuery)}
+                  <div key={type} className="space-y-3">
+                    <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                      <h4 className="text-[13px] font-bold text-warm-white uppercase font-mono flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-accent-cyan" />
+                        <span>{formatTypeName(type)} ({items.length})</span>
                       </h4>
-                      <p className="text-[12px] text-stone truncate font-light leading-relaxed">
-                        {post.description}
-                      </p>
+                      <button 
+                        onClick={() => setActiveTab(type)}
+                        className="text-stone hover:text-accent-cyan text-[10px] font-mono flex items-center gap-0.5"
+                      >
+                        <span>See All</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
                     </div>
-                  </Link>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {items.slice(0, 2).map((doc) => (
+                        <Card key={doc.id} className="p-4 hover:border-white/10 flex flex-col justify-between h-[130px] group transition-all">
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-start text-[9.5px] font-mono text-stone">
+                              <span className="text-accent-cyan font-bold uppercase">{doc.category}</span>
+                              {doc.isVerified && <CheckCircle className="w-3 h-3 text-accent-emerald" />}
+                            </div>
+                            <h5 className="text-[13.5px] font-bold text-warm-white group-hover:text-accent-cyan transition-colors truncate">
+                              {doc.title}
+                            </h5>
+                            <p className="text-[11.5px] text-stone line-clamp-2 leading-relaxed font-light font-sans">
+                              {doc.description}
+                            </p>
+                          </div>
+                          <span className="text-[10px] text-stone mt-2 block hover:underline cursor-pointer">
+                            Inspect content →
+                          </span>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
                 );
-              })}
-            </div>
+              })
+            ) : (
+              // Specific content type tab results list
+              <div className="space-y-4">
+                <span className="text-[10px] font-mono text-stone uppercase block">{results.length} records matched</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {results.map((doc) => (
+                    <Card key={doc.id} className="p-4 hover:border-white/10 flex flex-col justify-between h-[140px] group transition-all">
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-start text-[9.5px] font-mono text-stone">
+                          <span className="text-accent-cyan font-bold uppercase">{doc.category} · {doc.difficulty}</span>
+                          {doc.isVerified && <CheckCircle className="w-3 h-3 text-accent-emerald" />}
+                        </div>
+                        <h5 className="text-[13.5px] font-bold text-warm-white group-hover:text-accent-cyan transition-colors truncate">
+                          {doc.title}
+                        </h5>
+                        <p className="text-[11.5px] text-stone line-clamp-2 leading-relaxed font-light">
+                          {doc.description}
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-stone/80 mt-2 block font-mono">
+                        Inspect file →
+                      </span>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
         {/* Empty Search State */}
-        {query && results.length === 0 && !loading && (
+        {query && results.length === 0 && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="py-20 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-2xl"
+            className="space-y-6 pt-4"
           >
-            <FolderDot className="w-12 h-12 text-stone/40 animate-pulse" />
-            <h4 className="text-[13px] font-bold text-warm-white mt-3">No matching results</h4>
-            <p className="text-[11px] text-stone mt-1">Try refining search parameters or using autocomplete keywords.</p>
+            <div className="py-12 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-2xl text-center">
+              <FolderDot className="w-10 h-10 text-stone/30" />
+              <h4 className="text-[14px] font-bold text-warm-white mt-3">No results found</h4>
+              <p className="text-[11.5px] text-stone mt-1 max-w-xs font-light">We couldn't locate matching records. Try typing different keywords or tags.</p>
+            </div>
+
+            {/* Recommendations & Suggestions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              <div className="space-y-2">
+                <span className="text-[9.5px] font-mono text-stone uppercase tracking-wider font-bold block">Popular Technologies</span>
+                <div className="flex flex-wrap gap-2">
+                  {['React', 'Next.js', 'TypeScript', 'Docker', 'Systems', 'AWS'].map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => handleSuggestionClick(tag)}
+                      className="px-2.5 py-1 rounded bg-white/5 border border-white/5 text-[11px] font-mono text-stone hover:text-warm-white transition-colors cursor-pointer"
+                    >
+                      #{tag.toLowerCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[9.5px] font-mono text-stone uppercase tracking-wider font-bold block">Search Suggestions</span>
+                <ul className="space-y-1 text-[11.5px] text-stone font-light">
+                  <li>• Verify correct spelling of tags</li>
+                  <li>• Filter by specific content types using tabs</li>
+                  <li>• Clear active category/difficulty dropdowns</li>
+                </ul>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
+
     </div>
   );
 }

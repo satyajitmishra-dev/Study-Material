@@ -297,6 +297,43 @@ export default function DeveloperProfileClient({
                 </Card>
               </div>
 
+              {/* Recruiter & Verification Portal Console */}
+              <Card className="p-6 border-accent-cyan/15 bg-accent-cyan/[0.01] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-accent-cyan/[0.02] rounded-bl-full pointer-events-none" />
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono bg-accent-cyan/10 border border-accent-cyan/20 px-2 py-0.5 rounded-full text-accent-cyan font-bold uppercase tracking-wider">
+                        Recruiter Portal
+                      </span>
+                      <span className="inline-flex items-center gap-0.5 text-[9.5px] text-accent-emerald bg-accent-emerald/10 border border-accent-emerald/20 px-1.5 py-0.25 rounded font-mono">
+                        ✓ AA+ Verified Developer
+                      </span>
+                    </div>
+                    <h3 className="text-md font-bold text-warm-white">Verify Skills & Request Candidate Dossier</h3>
+                    <p className="text-[12.5px] text-stone font-light leading-relaxed max-w-2xl">
+                      Access verified credentials synced from AWS, Google, and LeetCode. Request the candidate's latest resume and contact details directly through the secure gateway.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3 shrink-0">
+                    <Button 
+                      variant="primary" 
+                      onClick={() => alert('Resume request sent to candidate! You will receive an email shortly.')}
+                      className="text-[12px] py-2"
+                    >
+                      Request Resume
+                    </Button>
+                    <Button 
+                      variant="secondary" 
+                      onClick={() => alert('Dossier access credentials generated under your partner dashboard.')}
+                      className="text-[12px] py-2"
+                    >
+                      Verify Certificates
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+
               {/* Featured Projects Grid */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center">

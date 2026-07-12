@@ -7,14 +7,12 @@ import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { 
   Home, 
-  BookOpen, 
-  Code2, 
   Search, 
-  Settings, 
-  Terminal, 
-  Sparkles, 
-  BarChart3, 
-  Globe2 
+  Plus, 
+  Users, 
+  FolderOpen, 
+  User,
+  Compass
 } from 'lucide-react';
 
 interface DockItemProps {
@@ -28,7 +26,7 @@ interface DockItemProps {
 function DockItem({ mouseX, title, icon: Icon, href, onClick }: DockItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const isActive = pathname === href || (href !== '/' && pathname?.startsWith(href));
+  const isActive = pathname === href || (href !== '/' && href !== '#' && pathname?.startsWith(href));
 
   const distance = useTransform(mouseX, (val) => {
     const bounds = ref.current?.getBoundingClientRect() ?? { x: 0, width: 0 };
@@ -56,7 +54,7 @@ function DockItem({ mouseX, title, icon: Icon, href, onClick }: DockItemProps) {
       style={{ width, height }}
       className={`relative rounded-xl flex items-center justify-center border transition-colors duration-150 group magnetic-item cursor-pointer
         ${isActive 
-          ? 'bg-warm-white text-onyx border-warm-white' 
+          ? 'bg-warm-white text-onyx border-warm-white shadow-glow' 
           : 'bg-charcoal/40 text-stone border-white/5 hover:bg-charcoal/80 hover:text-warm-white hover:border-white/10'
         }
       `}
@@ -87,27 +85,20 @@ function DockItem({ mouseX, title, icon: Icon, href, onClick }: DockItemProps) {
 
 interface FloatingDockProps {
   onSearchClick: () => void;
+  onCreateClick: () => void;
 }
 
-export default function FloatingDock({ onSearchClick }: FloatingDockProps) {
+export default function FloatingDock({ onSearchClick, onCreateClick }: FloatingDockProps) {
   const mouseX = useMotionValue(Infinity);
-  const { data: session } = useSession();
-  const isCmsUser = ['admin', 'editor', 'author'].includes((session?.user as any)?.role);
 
   const workspaces = [
     { title: 'Home Dashboard', icon: Home, href: '/' },
-    { title: 'Learning Space', icon: BookOpen, href: '/learn' },
-    { title: 'Project Space', icon: Code2, href: '/projects' },
-    { title: 'Search Palette (Ctrl+K)', icon: Search, href: '#', onClick: onSearchClick },
+    { title: 'Explore & Search', icon: Compass, href: '/search' },
+    { title: 'Create Menu', icon: Plus, href: '#', onClick: onCreateClick },
+    { title: 'Community Hub', icon: Users, href: '/community' },
+    { title: 'Workspace (Second Brain)', icon: FolderOpen, href: '/workspace' },
+    { title: 'Profile & Settings', icon: User, href: '/profile' }
   ];
-
-  if (isCmsUser) {
-    workspaces.push(
-      { title: 'Publishing Studio', icon: Terminal, href: '/admin' },
-      { title: 'SEO Studio', icon: Globe2, href: '/admin/seo' },
-      { title: 'Analytics Center', icon: BarChart3, href: '/admin/analytics' }
-    );
-  }
 
   return (
     <div className="fixed bottom-6 left-0 right-0 flex justify-center z-40 pointer-events-none">
@@ -117,7 +108,7 @@ export default function FloatingDock({ onSearchClick }: FloatingDockProps) {
         initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 20, stiffness: 120 }}
-        className="flex items-end gap-3 px-4 py-3 rounded-2xl bg-onyx/75 border border-white/10 backdrop-blur-md shadow-premium pointer-events-auto pointer-events-initial"
+        className="flex items-end gap-3 px-4 py-3 rounded-2xl bg-onyx/75 border border-white/10 backdrop-blur-md shadow-premium pointer-events-auto"
       >
         {workspaces.map((item, idx) => (
           <div key={idx} className="flex items-end">

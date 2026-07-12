@@ -56,6 +56,21 @@ let inMemoryRoadmaps: ProjectRoadmap[] = [];
 let inMemoryRoadmapTasks: RoadmapTask[] = [];
 let inMemoryTimelines: ProjectTimeline[] = [];
 let inMemoryProjects: any[] = [];
+let inMemoryUserNotes: any[] = [];
+let inMemoryDiscussions: any[] = [];
+let inMemoryDiscussionAnswers: any[] = [];
+let inMemoryDiscussionReplies: any[] = [];
+let inMemoryDiscussionVotes: any[] = [];
+let inMemoryPolls: any[] = [];
+let inMemoryPollOptions: any[] = [];
+let inMemoryPollVotes: any[] = [];
+let inMemoryEvents: any[] = [];
+let inMemoryEventRegistrations: any[] = [];
+let inMemoryCuratedRoadmaps: any[] = [];
+let inMemoryRoadmapStepNodes: any[] = [];
+let inMemoryUserRoadmapProgress: any[] = [];
+let inMemoryRoadmapSuggestions: any[] = [];
+let inMemoryPlatformResources: any[] = [];
 export let inMemoryUsernameHistories: any[] = [];
 export let inMemoryDraftBackups: any[] = [];
 export let inMemoryCmsRedirects: any[] = [];
@@ -371,6 +386,187 @@ const seedPublicSandboxDb = () => {
     message: 'Synced 45 stars, 8 forks, 2 issues, and 2 commits from satyajitmishra-dev/Study-Material.',
     type: 'auto',
     createdAt: now
+  });
+
+  // --- SEED V4 MODELS ---
+  inMemoryUserNotes.push({
+    id: 'note_os_notes',
+    title: 'Operating System Notes',
+    slug: 'operating-system-notes',
+    description: 'Complete lecture notes on process synchronization, CPU scheduling, and virtual memory paging.',
+    fileUrl: '/uploads/notes/os-notes.pdf',
+    fileType: 'PDF',
+    fileSize: 2457600,
+    visibility: 'public',
+    technology: 'Systems',
+    category: 'Computer Science',
+    tags: ['OS', 'Paging', 'CPU Scheduling'],
+    language: 'en',
+    license: 'CC BY-NC',
+    coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80',
+    university: 'Stanford University',
+    semester: 4,
+    branch: 'Computer Science',
+    subject: 'Operating Systems',
+    topic: 'Process Management',
+    authorId: 'sandbox-admin-id',
+    createdAt: new Date(now.getTime() - 3600000 * 48),
+    updatedAt: new Date(now.getTime() - 3600000 * 48),
+    views: 412,
+    likes: 85,
+    bookmarksCount: 22
+  });
+
+  inMemoryDiscussions.push({
+    id: 'disc_auth_strategy',
+    title: 'Best Authentication Strategy for Next.js 16?',
+    slug: 'best-authentication-strategy-for-nextjs-16',
+    content: 'With Next.js 16 App Router, what is the best way to handle persistent sessions? Should we use Iron Session (stateless sealed cookies), NextAuth (beta auth.js), or custom iron-clad JWT cookies with a backend? Let’s debate performance, security, and edge-compatibility.',
+    category: 'React',
+    tags: ['nextjs', 'authentication', 'security'],
+    isQuestion: false,
+    visibility: 'public',
+    authorId: 'sandbox-admin-id',
+    createdAt: new Date(now.getTime() - 3600000 * 36),
+    updatedAt: new Date(now.getTime() - 3600000 * 36),
+    views: 890,
+    upvotes: 42,
+    downvotes: 1
+  });
+
+  inMemoryDiscussions.push({
+    id: 'disc_jwt_work',
+    title: 'How does JWT work under the hood in Next.js Middleware?',
+    slug: 'how-does-jwt-work-under-the-hood-in-nextjs-middleware',
+    content: 'I am trying to verify client JWTs inside Vercel Edge Middleware. Do I need custom crypto engines or can Web Crypto API do it natively? What are the latency overheads?',
+    category: 'Next.js',
+    tags: ['nextjs', 'jwt', 'middleware'],
+    isQuestion: true,
+    acceptedAnswerId: 'ans_jwt_resolved',
+    visibility: 'public',
+    authorId: 'sandbox-user-id',
+    createdAt: new Date(now.getTime() - 3600000 * 24),
+    updatedAt: new Date(now.getTime() - 3600000 * 24),
+    views: 350,
+    upvotes: 12,
+    downvotes: 0
+  });
+
+  inMemoryDiscussionAnswers.push({
+    id: 'ans_jwt_resolved',
+    content: 'You should use the native `crypto.subtle` Web Crypto API since Node.js `crypto` is not available in Vercel Edge Middleware. Here is a simple verify method:\n\n```typescript\nasync function verifyJwt(token: string, secret: string) {\n  const encoder = new TextEncoder();\n  const keyData = encoder.encode(secret);\n  const key = await crypto.subtle.importKey("raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);\n  // verify signatures...\n}\n```',
+    discussionId: 'disc_jwt_work',
+    authorId: 'sandbox-admin-id',
+    isAccepted: true,
+    createdAt: new Date(now.getTime() - 3600000 * 20),
+    updatedAt: new Date(now.getTime() - 3600000 * 20),
+    upvotes: 18,
+    downvotes: 0
+  });
+
+  inMemoryPolls.push({
+    id: 'poll_state_mgmt',
+    title: 'Which State Management Library for React 19?',
+    description: 'Cast your vote for the best library as the React Compiler auto-memoizes renders.',
+    category: 'React',
+    technology: 'React',
+    durationDays: 7,
+    visibility: 'public',
+    pollType: 'single',
+    isAnonymous: false,
+    isClosed: false,
+    expiresAt: new Date(now.getTime() + 3600000 * 120),
+    authorId: 'sandbox-admin-id',
+    createdAt: now,
+    updatedAt: now
+  });
+
+  inMemoryPollOptions.push(
+    { id: 'opt_zustand', text: 'Zustand (Sleek store)', pollId: 'poll_state_mgmt' },
+    { id: 'opt_redux', text: 'Redux Toolkit (Enterprise boilerplate)', pollId: 'poll_state_mgmt' },
+    { id: 'opt_recoil', text: 'Jotai / Recoil (Atomic values)', pollId: 'poll_state_mgmt' },
+    { id: 'opt_context', text: 'Native Context + Signals', pollId: 'poll_state_mgmt' }
+  );
+
+  inMemoryEvents.push({
+    id: 'evt_hack_2026',
+    title: 'Hackathon 2026',
+    slug: 'hackathon-2026',
+    banner: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80',
+    logo: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=100&q=80',
+    description: 'The ultimate web engineering challenge. Build high-fidelity developer tools, compilers, templates, or integrations in 48 hours and win $10,000 cash prizes.',
+    eventType: 'HACKATHON',
+    organizerId: 'sandbox-admin-id',
+    startAt: new Date(now.getTime() + 3600000 * 24 * 5),
+    endAt: new Date(now.getTime() + 3600000 * 24 * 7),
+    deadlineAt: new Date(now.getTime() + 3600000 * 24 * 4),
+    minTeamSize: 1,
+    maxTeamSize: 4,
+    onlineOffline: 'online',
+    venue: 'Virtual Discord Engine',
+    mapUrl: null,
+    allowedColleges: [],
+    eligibility: 'All developers worldwide',
+    contactEmail: 'organizers@studymaterial.utool.in',
+    discordUrl: 'https://discord.gg/studymaterial',
+    whatsappUrl: null,
+    websiteUrl: 'https://studymaterial.utool.in/hackathon-2026',
+    certificate: true,
+    prizes: 'First Place: $5,000\nSecond Place: $3,000\nThird Place: $2,000',
+    rules: '1. Code must be written during the hackathon.\n2. Projects must use Next.js 16/React 19.\n3. Open source contributions welcomed.',
+    faq: JSON.stringify([
+      { q: 'Who can register?', a: 'Any developer, student or professional worldwide.' },
+      { q: 'Is it team-only?', a: 'You can participate solo or in a team of up to 4 members.' }
+    ]),
+    timelineJson: JSON.stringify([
+      { time: 'Day 1 09:00 AM', event: 'Opening Ceremony' },
+      { time: 'Day 1 10:00 AM', event: 'Coding Begins' },
+      { time: 'Day 3 10:00 AM', event: 'Submission Deadline' }
+    ]),
+    judgesJson: JSON.stringify([
+      { name: 'Satyajit Mishra', title: 'Principal Architect' }
+    ]),
+    sponsorsJson: JSON.stringify([
+      { name: 'Supabase', tier: 'Gold' },
+      { name: 'Vercel', tier: 'Platinum' }
+    ]),
+    createdAt: now,
+    updatedAt: now
+  });
+
+  inMemoryCuratedRoadmaps.push({
+    id: 'rd_frontend',
+    title: 'Frontend Developer Roadmap',
+    slug: 'frontend-developer-roadmap',
+    description: 'Step-by-step master roadmap to learn modern frontend UI engineering from HTML/CSS to advanced Next.js streaming architectures.',
+    difficulty: 'intermediate',
+    duration: '8 weeks',
+    prerequisites: ['Basic internet fundamentals'],
+    isPublished: true,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  inMemoryRoadmapStepNodes.push(
+    { id: 'step_html', roadmapId: 'rd_frontend', title: 'HTML', description: 'Semantic elements, DOM trees, accessibility attributes.', parentId: null, orderIndex: 0 },
+    { id: 'step_css', roadmapId: 'rd_frontend', title: 'CSS', description: 'Layouts (Flexbox, Grid), media queries, modern custom properties.', parentId: 'step_html', orderIndex: 1 },
+    { id: 'step_js', roadmapId: 'rd_frontend', title: 'JavaScript', description: 'Async execution, closures, functional array methods.', parentId: 'step_css', orderIndex: 2 },
+    { id: 'step_react', roadmapId: 'rd_frontend', title: 'React', description: 'Hooks, virtualization, automatic compiler memoization.', parentId: 'step_js', orderIndex: 3 },
+    { id: 'step_nextjs', roadmapId: 'rd_frontend', title: 'Next.js', description: 'App router, Suspense fallback streaming, dynamic PPR routing.', parentId: 'step_react', orderIndex: 4 }
+  );
+
+  inMemoryPlatformResources.push({
+    id: 'res_next_docs',
+    title: 'Next.js 16 Official Documentation',
+    url: 'https://nextjs.org/docs',
+    description: 'Learn dynamic routing, Edge middleware, server components, and dynamic caching configurations.',
+    category: 'Documentation',
+    technology: 'Next.js',
+    difficulty: 'Beginner',
+    upvotes: 120,
+    authorId: 'sandbox-admin-id',
+    createdAt: now,
+    updatedAt: now
   });
 };
 
@@ -1336,6 +1532,710 @@ class PublicDatabase {
       }
     ];
   }
+
+  // --- V4 NOTES SYSTEM ---
+  async createNote(data: any): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.userNote.create({ data });
+    }
+    const newNote = {
+      id: data.id || `note_${Date.now()}`,
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      views: 0,
+      likes: 0,
+      bookmarksCount: 0
+    };
+    inMemoryUserNotes.push(newNote);
+    return newNote;
+  }
+
+  async getNotes(filters?: { visibility?: string; authorId?: string }): Promise<any[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.userNote.findMany({
+        where: filters,
+        include: { author: true },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+    let res = [...inMemoryUserNotes];
+    if (filters?.visibility) res = res.filter(n => n.visibility === filters.visibility);
+    if (filters?.authorId) res = res.filter(n => n.authorId === filters.authorId);
+    
+    // Attach fake author profile
+    const fakeAuthor = (inMemoryAuthorProfiles[0] || { name: 'Sandbox Admin' }) as any;
+    return res.map(n => ({ ...n, author: { name: fakeAuthor.name || 'Admin', image: fakeAuthor.coverImage } })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getNoteBySlug(slug: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.userNote.findUnique({
+        where: { slug },
+        include: { author: true }
+      });
+    }
+    const note = inMemoryUserNotes.find(n => n.slug === slug);
+    if (!note) return null;
+    const fakeAuthor = (inMemoryAuthorProfiles[0] || { name: 'Sandbox Admin' }) as any;
+    return { ...note, author: { name: fakeAuthor.name || 'Admin', image: fakeAuthor.coverImage } };
+  }
+
+  // --- V4 DISCUSSIONS SYSTEM ---
+  async createDiscussion(data: any): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.discussion.create({ data });
+    }
+    const newDisc = {
+      id: data.id || `disc_${Date.now()}`,
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      views: 0,
+      upvotes: 0,
+      downvotes: 0
+    };
+    inMemoryDiscussions.push(newDisc);
+    return newDisc;
+  }
+
+  async getDiscussions(filters?: { category?: string; isQuestion?: boolean; visibility?: string }): Promise<any[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.discussion.findMany({
+        where: filters,
+        include: { author: true, answers: true },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+    let res = [...inMemoryDiscussions];
+    if (filters?.category) res = res.filter(d => d.category === filters.category);
+    if (filters?.isQuestion !== undefined) res = res.filter(d => d.isQuestion === filters.isQuestion);
+    if (filters?.visibility) res = res.filter(d => d.visibility === filters.visibility);
+    
+    const fakeAuthor = (inMemoryAuthorProfiles[0] || { name: 'Sandbox Admin' }) as any;
+    return res.map(d => ({
+      ...d,
+      author: { name: fakeAuthor.name || 'Admin', image: fakeAuthor.coverImage },
+      answers: inMemoryDiscussionAnswers.filter(ans => ans.discussionId === d.id)
+    })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getDiscussionBySlug(slug: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.discussion.findUnique({
+        where: { slug },
+        include: { 
+          author: true, 
+          answers: {
+            include: {
+              author: true,
+              replies: {
+                include: { author: true }
+              }
+            }
+          }
+        }
+      });
+    }
+    const disc = inMemoryDiscussions.find(d => d.slug === slug);
+    if (!disc) return null;
+    const fakeAuthor = (inMemoryAuthorProfiles[0] || { name: 'Sandbox Admin' }) as any;
+    const answers = inMemoryDiscussionAnswers.filter(ans => ans.discussionId === disc.id).map(ans => ({
+      ...ans,
+      author: { name: 'Respondent', image: null },
+      replies: inMemoryDiscussionReplies.filter(rep => rep.answerId === ans.id).map(rep => ({
+        ...rep,
+        author: { name: 'Replier', image: null }
+      }))
+    }));
+    return { ...disc, author: { name: fakeAuthor.name || 'Admin', image: fakeAuthor.coverImage }, answers };
+  }
+
+  async addDiscussionAnswer(data: any): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.discussionAnswer.create({ data });
+    }
+    const newAns = {
+      id: `ans_${Date.now()}`,
+      ...data,
+      isAccepted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      upvotes: 0,
+      downvotes: 0
+    };
+    inMemoryDiscussionAnswers.push(newAns);
+    return newAns;
+  }
+
+  async addDiscussionReply(data: any): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.discussionReply.create({ data });
+    }
+    const newRep = {
+      id: `rep_${Date.now()}`,
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    inMemoryDiscussionReplies.push(newRep);
+    return newRep;
+  }
+
+  async voteDiscussion(userId: string, voteType: 'UPVOTE' | 'DOWNVOTE', target: { discussionId?: string; answerId?: string }): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      if (target.discussionId) {
+        await prisma.discussionVote.upsert({
+          where: { userId_discussionId: { userId, discussionId: target.discussionId } },
+          update: { voteType },
+          create: { userId, discussionId: target.discussionId, voteType }
+        });
+        const votes = await prisma.discussionVote.findMany({ where: { discussionId: target.discussionId } });
+        const up = votes.filter((v: any) => v.voteType === 'UPVOTE').length;
+        const down = votes.filter((v: any) => v.voteType === 'DOWNVOTE').length;
+        return prisma.discussion.update({
+          where: { id: target.discussionId },
+          data: { upvotes: up, downvotes: down }
+        });
+      } else if (target.answerId) {
+        await prisma.discussionVote.upsert({
+          where: { userId_answerId: { userId, answerId: target.answerId } },
+          update: { voteType },
+          create: { userId, answerId: target.answerId, voteType }
+        });
+        const votes = await prisma.discussionVote.findMany({ where: { answerId: target.answerId } });
+        const up = votes.filter((v: any) => v.voteType === 'UPVOTE').length;
+        const down = votes.filter((v: any) => v.voteType === 'DOWNVOTE').length;
+        return prisma.discussionAnswer.update({
+          where: { id: target.answerId },
+          data: { upvotes: up, downvotes: down }
+        });
+      }
+    }
+    // In-memory voting
+    if (target.discussionId) {
+      const idx = inMemoryDiscussions.findIndex(d => d.id === target.discussionId);
+      if (idx >= 0) {
+        if (voteType === 'UPVOTE') inMemoryDiscussions[idx].upvotes += 1;
+        else inMemoryDiscussions[idx].downvotes += 1;
+        return inMemoryDiscussions[idx];
+      }
+    } else if (target.answerId) {
+      const idx = inMemoryDiscussionAnswers.findIndex(a => a.id === target.answerId);
+      if (idx >= 0) {
+        if (voteType === 'UPVOTE') inMemoryDiscussionAnswers[idx].upvotes += 1;
+        else inMemoryDiscussionAnswers[idx].downvotes += 1;
+        return inMemoryDiscussionAnswers[idx];
+      }
+    }
+  }
+
+  async acceptDiscussionAnswer(discussionId: string, answerId: string): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      await prisma.discussionAnswer.updateMany({
+        where: { discussionId },
+        data: { isAccepted: false }
+      });
+      await prisma.discussionAnswer.update({
+        where: { id: answerId },
+        data: { isAccepted: true }
+      });
+      return prisma.discussion.update({
+        where: { id: discussionId },
+        data: { acceptedAnswerId: answerId }
+      });
+    }
+    // In-Memory
+    inMemoryDiscussionAnswers.forEach(ans => {
+      if (ans.discussionId === discussionId) ans.isAccepted = false;
+    });
+    const ansIdx = inMemoryDiscussionAnswers.findIndex(a => a.id === answerId);
+    if (ansIdx >= 0) inMemoryDiscussionAnswers[ansIdx].isAccepted = true;
+    const discIdx = inMemoryDiscussions.findIndex(d => d.id === discussionId);
+    if (discIdx >= 0) inMemoryDiscussions[discIdx].acceptedAnswerId = answerId;
+  }
+
+  // --- V4 POLLS SYSTEM ---
+  async createPoll(data: any): Promise<any> {
+    const prisma = this.prisma;
+    const expiresAt = new Date(Date.now() + 3600000 * 24 * (data.durationDays || 7));
+    if (prisma) {
+      const options = data.options || [];
+      return prisma.poll.create({
+        data: {
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          technology: data.technology,
+          durationDays: data.durationDays,
+          visibility: data.visibility,
+          pollType: data.pollType,
+          isAnonymous: data.isAnonymous,
+          expiresAt,
+          authorId: data.authorId,
+          options: {
+            create: options.map((opt: string) => ({ text: opt }))
+          }
+        },
+        include: { options: true }
+      });
+    }
+    // In-Memory
+    const pollId = `poll_${Date.now()}`;
+    const newPoll = {
+      id: pollId,
+      ...data,
+      expiresAt,
+      isClosed: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    inMemoryPolls.push(newPoll);
+    const options = data.options || [];
+    options.forEach((opt: string) => {
+      inMemoryPollOptions.push({ id: `opt_${Math.random()}`, text: opt, pollId });
+    });
+    return newPoll;
+  }
+
+  async getPolls(filters?: any): Promise<any[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.poll.findMany({
+        where: filters,
+        include: { options: { include: { votes: true } }, votes: true, author: true },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+    const fakeAuthor = (inMemoryAuthorProfiles[0] || { name: 'Sandbox Admin' }) as any;
+    return inMemoryPolls.map(p => {
+      const options = inMemoryPollOptions.filter(o => o.pollId === p.id).map(o => ({
+        ...o,
+        votes: inMemoryPollVotes.filter(v => v.optionId === o.id)
+      }));
+      return {
+        ...p,
+        options,
+        votes: inMemoryPollVotes.filter(v => v.pollId === p.id),
+        author: { name: fakeAuthor.name || 'Admin', image: fakeAuthor.coverImage }
+      };
+    }).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getPollById(id: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.poll.findUnique({
+        where: { id },
+        include: { options: { include: { votes: true } }, votes: true, author: true }
+      });
+    }
+    const poll = inMemoryPolls.find(p => p.id === id);
+    if (!poll) return null;
+    const fakeAuthor = (inMemoryAuthorProfiles[0] || { name: 'Sandbox Admin' }) as any;
+    const options = inMemoryPollOptions.filter(o => o.pollId === poll.id).map(o => ({
+      ...o,
+      votes: inMemoryPollVotes.filter(v => v.optionId === o.id)
+    }));
+    return {
+      ...poll,
+      options,
+      votes: inMemoryPollVotes.filter(v => v.pollId === poll.id),
+      author: { name: fakeAuthor.name || 'Admin', image: fakeAuthor.coverImage }
+    };
+  }
+
+  async votePoll(pollId: string, optionId: string, userId: string, ipAddress?: string): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.pollVote.create({
+        data: { pollId, optionId, userId, ipAddress }
+      });
+    }
+    // In-memory
+    const existing = inMemoryPollVotes.find(v => v.pollId === pollId && v.userId === userId);
+    if (existing) throw new Error('ALREADY_VOTED');
+    const newVote = { id: `vote_${Date.now()}`, pollId, optionId, userId, ipAddress, createdAt: new Date() };
+    inMemoryPollVotes.push(newVote);
+    return newVote;
+  }
+
+  // --- V4 EVENTS PLATFORM ---
+  async createEvent(data: any): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.platformEvent.create({ data });
+    }
+    const newEvent = {
+      id: `evt_${Date.now()}`,
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    inMemoryEvents.push(newEvent);
+    return newEvent;
+  }
+
+  async getEvents(filters?: any): Promise<any[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.platformEvent.findMany({
+        where: filters,
+        include: { organizer: true, registrations: true },
+        orderBy: { startAt: 'asc' }
+      });
+    }
+    const fakeAuthor = (inMemoryAuthorProfiles[0] || { name: 'Sandbox Admin' }) as any;
+    return inMemoryEvents.map(e => ({
+      ...e,
+      organizer: { name: fakeAuthor.name || 'Admin', image: fakeAuthor.coverImage },
+      registrations: inMemoryEventRegistrations.filter(r => r.eventId === e.id)
+    })).sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
+  }
+
+  async getEventBySlug(slug: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.platformEvent.findUnique({
+        where: { slug },
+        include: { organizer: true, registrations: true }
+      });
+    }
+    const event = inMemoryEvents.find(e => e.slug === slug);
+    if (!event) return null;
+    const fakeAuthor = (inMemoryAuthorProfiles[0] || { name: 'Sandbox Admin' }) as any;
+    return {
+      ...event,
+      organizer: { name: fakeAuthor.name || 'Admin', image: fakeAuthor.coverImage },
+      registrations: inMemoryEventRegistrations.filter(r => r.eventId === event.id)
+    };
+  }
+
+  async registerForEvent(data: any): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.eventRegistration.create({ data });
+    }
+    // In-memory
+    const existing = inMemoryEventRegistrations.find(r => r.eventId === data.eventId && r.userId === data.userId);
+    if (existing) throw new Error('ALREADY_REGISTERED');
+    const newReg = {
+      id: `reg_${Date.now()}`,
+      ...data,
+      checkedIn: false,
+      createdAt: new Date()
+    };
+    inMemoryEventRegistrations.push(newReg);
+    return newReg;
+  }
+
+  // --- V4 ROADMAPS SYSTEM ---
+  async createCuratedRoadmap(data: any): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.curatedRoadmap.create({ data });
+    }
+    const newRm = {
+      id: `rm_${Date.now()}`,
+      ...data,
+      isPublished: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    inMemoryCuratedRoadmaps.push(newRm);
+    return newRm;
+  }
+
+  async getCuratedRoadmaps(): Promise<any[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.curatedRoadmap.findMany({
+        include: { steps: true, progress: true }
+      });
+    }
+    return inMemoryCuratedRoadmaps.map(rm => ({
+      ...rm,
+      steps: inMemoryRoadmapStepNodes.filter(s => s.roadmapId === rm.id)
+    }));
+  }
+
+  async getCuratedRoadmapBySlug(slug: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.curatedRoadmap.findUnique({
+        where: { slug },
+        include: { steps: { orderBy: { orderIndex: 'asc' } }, progress: true }
+      });
+    }
+    const rm = inMemoryCuratedRoadmaps.find(r => r.slug === slug);
+    if (!rm) return null;
+    return {
+      ...rm,
+      steps: inMemoryRoadmapStepNodes.filter(s => s.roadmapId === rm.id).sort((a, b) => a.orderIndex - b.orderIndex)
+    };
+  }
+
+  async updateRoadmapProgress(userId: string, roadmapId: string, completedSteps: string[]): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.userRoadmapProgress.upsert({
+        where: { userId_roadmapId: { userId, roadmapId } },
+        update: { completedSteps },
+        create: { userId, roadmapId, completedSteps }
+      });
+    }
+    // In-memory
+    const idx = inMemoryUserRoadmapProgress.findIndex(p => p.userId === userId && p.roadmapId === roadmapId);
+    const item = { id: idx >= 0 ? inMemoryUserRoadmapProgress[idx].id : `prog_${Date.now()}`, userId, roadmapId, completedSteps, updatedAt: new Date() };
+    if (idx >= 0) inMemoryUserRoadmapProgress[idx] = item;
+    else inMemoryUserRoadmapProgress.push(item);
+    return item;
+  }
+
+  async getRoadmapProgress(userId: string, roadmapId: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.userRoadmapProgress.findUnique({
+        where: { userId_roadmapId: { userId, roadmapId } }
+      });
+    }
+    return inMemoryUserRoadmapProgress.find(p => p.userId === userId && p.roadmapId === roadmapId) || null;
+  }
+
+  async submitRoadmapSuggestion(data: any): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.roadmapSuggestion.create({ data });
+    }
+    const newSug = {
+      id: `sug_${Date.now()}`,
+      ...data,
+      status: 'pending',
+      createdAt: new Date()
+    };
+    inMemoryRoadmapSuggestions.push(newSug);
+    return newSug;
+  }
+
+  // --- V4 RESOURCES ---
+  async createResource(data: any): Promise<any> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.platformResource.create({ data });
+    }
+    const newRes = {
+      id: `res_${Date.now()}`,
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    inMemoryPlatformResources.push(newRes);
+    return newRes;
+  }
+
+  // --- V4 UNIVERSAL FEED ---
+  async getUniversalFeed(filters?: {
+    type?: string;
+    technology?: string;
+    difficulty?: string;
+    sortBy?: 'latest' | 'trending' | 'most_viewed' | 'most_saved';
+    limit?: number;
+    offset?: number;
+  }): Promise<{ items: any[]; total: number }> {
+    const limit = filters?.limit || 15;
+    const offset = filters?.offset || 0;
+    const typeFilter = filters?.type || 'all';
+
+    // 1. Fetch from database or in-memory lists
+    const prisma = this.prisma;
+    let rawItems: any[] = [];
+
+    if (prisma) {
+      // Postgres fetching
+      const promises: Promise<any[]>[] = [];
+
+      // Fetch Blogs (CmsProject with type 'article' / published)
+      if (typeFilter === 'all' || typeFilter === 'blog') {
+        promises.push(
+          prisma.cmsProject.findMany({
+            where: { status: 'published', type: 'article' },
+            include: { author: true, comments: true, reactions: true },
+            take: 100
+          }).then(res => res.map(x => ({ ...x, feedType: 'blog', authorName: x.author.name, authorImage: x.author.image, likes: x.reactions.length, commentCount: x.comments.length })))
+        );
+      }
+
+      // Fetch Projects (Project model with visibility 'public')
+      if (typeFilter === 'all' || typeFilter === 'project') {
+        promises.push(
+          prisma.project.findMany({
+            where: { visibility: 'public' },
+            include: { contributors: true, comments: true },
+            take: 100
+          }).then(res => res.map(x => ({ ...x, feedType: 'project', title: x.name, likes: 25, views: 120, commentCount: x.comments.length })))
+        );
+      }
+
+      // Fetch Notes (UserNote with visibility 'public')
+      if (typeFilter === 'all' || typeFilter === 'note') {
+        promises.push(
+          prisma.userNote.findMany({
+            where: { visibility: 'public' },
+            include: { author: true },
+            take: 100
+          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'note', authorName: x.author?.name, authorImage: x.author?.image })))
+        );
+      }
+
+      // Fetch Discussions (isQuestion = false, visibility 'public')
+      if (typeFilter === 'all' || typeFilter === 'discussion') {
+        promises.push(
+          prisma.discussion.findMany({
+            where: { visibility: 'public', isQuestion: false },
+            include: { author: true, answers: true },
+            take: 100
+          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'discussion', authorName: x.author?.name, authorImage: x.author?.image, replies: x.answers?.length || 0, likes: x.upvotes })))
+        );
+      }
+
+      // Fetch Questions (isQuestion = true, visibility 'public')
+      if (typeFilter === 'all' || typeFilter === 'question') {
+        promises.push(
+          prisma.discussion.findMany({
+            where: { visibility: 'public', isQuestion: true },
+            include: { author: true, answers: true },
+            take: 100
+          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'question', authorName: x.author?.name, authorImage: x.author?.image, replies: x.answers?.length || 0, likes: x.upvotes })))
+        );
+      }
+
+      // Fetch Polls (visibility 'public')
+      if (typeFilter === 'all' || typeFilter === 'poll') {
+        promises.push(
+          prisma.poll.findMany({
+            where: { visibility: 'public' },
+            include: { options: true, author: true },
+            take: 100
+          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'poll', authorName: x.author?.name, authorImage: x.author?.image })))
+        );
+      }
+
+      // Fetch Events
+      if (typeFilter === 'all' || typeFilter === 'event') {
+        promises.push(
+          prisma.platformEvent.findMany({
+            include: { organizer: true },
+            take: 100
+          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'event', organizerName: x.organizer?.name, organizerImage: x.organizer?.image })))
+        );
+      }
+
+      // Fetch Resources
+      if (typeFilter === 'all' || typeFilter === 'resource') {
+        promises.push(
+          prisma.platformResource.findMany({
+            include: { author: true },
+            take: 100
+          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'resource', authorName: x.author?.name, authorImage: x.author?.image })))
+        );
+      }
+
+      const results = await Promise.all(promises);
+      rawItems = results.flat();
+    } else {
+      // In-Memory fetching
+      if (typeFilter === 'all' || typeFilter === 'blog') {
+        rawItems.push(...[
+          { id: 'b_1', title: 'Building Authentication with Next.js 16', slug: 'nextjs-auth', feedType: 'blog', description: 'Deep-dive compiler memoization & security layouts.', authorName: 'Satyajit Mishra', readingTime: '8 min', likes: 140, commentCount: 12, createdAt: new Date(Date.now() - 3600000 * 2) }
+        ]);
+      }
+      if (typeFilter === 'all' || typeFilter === 'project') {
+        rawItems.push(...inMemoryProjects.map(p => ({ ...p, feedType: 'project', title: p.name, likes: 45, views: 180 })));
+        rawItems.push({
+          id: 'proj_resume_builder',
+          title: 'AI Resume Builder',
+          slug: 'ai-resume-builder',
+          feedType: 'project',
+          description: 'A React 19 visual canvas to compile ATS-optimized resumes using neural models.',
+          techStack: ['React 19', 'Zustand', 'OpenAI API'],
+          githubUrl: 'https://github.com/studymaterial/resume-builder',
+          demoUrl: 'https://resume.studymaterial.dev',
+          likes: 310,
+          views: 1250,
+          createdAt: new Date(Date.now() - 3600000 * 10)
+        });
+      }
+      if (typeFilter === 'all' || typeFilter === 'note') {
+        rawItems.push(...inMemoryUserNotes.map(n => ({ ...n, feedType: 'note' })));
+      }
+      if (typeFilter === 'all' || typeFilter === 'discussion') {
+        rawItems.push(...inMemoryDiscussions.filter(d => !d.isQuestion).map(d => ({ ...d, feedType: 'discussion', replies: 23, likes: d.upvotes })));
+      }
+      if (typeFilter === 'all' || typeFilter === 'question') {
+        rawItems.push(...inMemoryDiscussions.filter(d => d.isQuestion).map(d => ({ ...d, feedType: 'question', replies: 5, likes: d.upvotes })));
+      }
+      if (typeFilter === 'all' || typeFilter === 'poll') {
+        rawItems.push(...inMemoryPolls.map(p => ({ ...p, feedType: 'poll' })));
+      }
+      if (typeFilter === 'all' || typeFilter === 'event') {
+        rawItems.push(...inMemoryEvents.map(e => ({ ...e, feedType: 'event' })));
+      }
+      if (typeFilter === 'all' || typeFilter === 'resource') {
+        rawItems.push(...inMemoryPlatformResources.map(r => ({ ...r, feedType: 'resource' })));
+      }
+    }
+
+    // 2. Filters
+    if (filters?.technology) {
+      const tech = filters.technology.toLowerCase();
+      rawItems = rawItems.filter(item => {
+        const textToSearch = `${item.title} ${item.description || ''} ${item.technology || ''} ${(item.tags || []).join(' ')} ${(item.techStack || []).join(' ')}`.toLowerCase();
+        return textToSearch.includes(tech);
+      });
+    }
+
+    if (filters?.difficulty) {
+      const diff = filters.difficulty.toLowerCase();
+      rawItems = rawItems.filter(item => (item.difficulty || '').toLowerCase() === diff);
+    }
+
+    // 3. Scoring algorithm for Trending & Sorting
+    const calculateScore = (item: any) => {
+      const ageHours = (Date.now() - new Date(item.createdAt).getTime()) / 3600000;
+      const views = item.views || 0;
+      const likes = item.likes || item.upvotes || 0;
+      const commentCount = item.commentCount || item.replies || 0;
+      
+      const engagement = likes * 5 + commentCount * 10 + views * 0.1;
+      
+      return engagement / (ageHours + 2);
+    };
+
+    if (filters?.sortBy === 'trending') {
+      rawItems.sort((a, b) => calculateScore(b) - calculateScore(a));
+    } else if (filters?.sortBy === 'most_viewed') {
+      rawItems.sort((a, b) => (b.views || 0) - (a.views || 0));
+    } else if (filters?.sortBy === 'most_saved') {
+      rawItems.sort((a, b) => (b.bookmarksCount || 0) - (a.bookmarksCount || 0));
+    } else {
+      rawItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    const total = rawItems.length;
+    const items = rawItems.slice(offset, offset + limit);
+
+    return { items, total };
+  }
 }
 
 export const publicDb = new PublicDatabase();
@@ -1359,5 +2259,20 @@ export {
   inMemoryRoadmaps,
   inMemoryRoadmapTasks,
   inMemoryTimelines,
-  inMemoryProjects
+  inMemoryProjects,
+  inMemoryUserNotes,
+  inMemoryDiscussions,
+  inMemoryDiscussionAnswers,
+  inMemoryDiscussionReplies,
+  inMemoryDiscussionVotes,
+  inMemoryPolls,
+  inMemoryPollOptions,
+  inMemoryPollVotes,
+  inMemoryEvents,
+  inMemoryEventRegistrations,
+  inMemoryCuratedRoadmaps,
+  inMemoryRoadmapStepNodes,
+  inMemoryUserRoadmapProgress,
+  inMemoryRoadmapSuggestions,
+  inMemoryPlatformResources
 };

@@ -16,6 +16,7 @@ model User {
   avatar        String?
   role          String    @default("user") // admin | user
   status        String    @default("active") // active | disabled
+  passwordHash  String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   accounts      Account[]
@@ -51,6 +52,24 @@ model User {
   notifications     Notification[]
   shareEvents       ShareEvent[]
   analytics         CmsAnalytics[]
+
+  // --- STUDYMATERIAL V4 RELATIONS ---
+  notesUploaded        UserNote[]
+  discussions          Discussion[]
+  discussionAnswers    DiscussionAnswer[]
+  discussionReplies    DiscussionReply[]
+  discussionVotes      DiscussionVote[]
+  polls                Poll[]
+  pollVotes            PollVote[]
+  organizedEvents      PlatformEvent[]       @relation("EventOrganizer")
+  eventRegistrations   EventRegistration[]
+  roadmapProgress      UserRoadmapProgress[]
+  roadmapSuggestions   RoadmapSuggestion[]
+  sharedResources      PlatformResource[]
+
+  // --- AUTH SECURITY RELATIONS ---
+  userSessions         UserSession[]
+  authAuditLogs        AuthAuditLog[]
 }
 
 model Account {
@@ -1043,3 +1062,371 @@ model ProjectVersion {
 
   @@index([projectId])
 }
+
+// ==========================================
+// --- STUDYMATERIAL V4 MODELS ---
+// ==========================================
+
+model UserNote {
+  id             String    @id @default(cuid())
+  title          String
+  slug           String    @unique
+  description    String?   @db.Text
+  fileUrl        String    // Upload path
+  fileType       String    // PDF, DOCX, ZIP, MD, etc.
+  fileSize       Int       // In bytes
+  visibility     String    @default("public") // public | private | unlisted
+  technology     String?
+  category       String?
+  tags           String[]  @default([])
+  language       String    @default("en")
+  license        String?   @default("MIT")
+  coverImage     String?
+  seoTitle       String?
+  seoDescription String?
+  
+  // Academic Metadata (Optional)
+  university     String?
+  semester       Int?
+  branch         String?
+  subject        String?
+  topic          String?
+  
+  authorId       String
+  author         User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  views          Int       @default(0)
+  likes          Int       @default(0)
+  bookmarksCount Int       @default(0)
+  
+  @@index([authorId])
+  @@index([visibility])
+}
+
+model Discussion {
+  id             String             @id @default(cuid())
+  title          String
+  slug           String             @unique
+  content        String             @db.Text
+  category       String             // General, Frontend, Backend, AI, Career, etc.
+  tags           String[]           @default([])
+  isQuestion     Boolean            @default(false)
+  acceptedAnswerId String?
+  visibility     String             @default("public") // public | private | unlisted
+  
+  authorId       String
+  author         User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  
+  views          Int                @default(0)
+  upvotes        Int                @default(0)
+  downvotes      Int                @default(0)
+  
+  answers        DiscussionAnswer[]
+  votes          DiscussionVote[]
+  
+  @@index([authorId])
+}
+
+model DiscussionAnswer {
+  id             String             @id @default(cuid())
+  content        String             @db.Text
+  discussionId   String
+  discussion     Discussion         @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  isAccepted     Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  
+  upvotes        Int                @default(0)
+  downvotes      Int                @default(0)
+  
+  replies        DiscussionReply[]
+  votes          DiscussionVote[]
+  
+  @@index([discussionId])
+  @@index([authorId])
+}
+
+model DiscussionReply {
+  id             String             @id @default(cuid())
+  content        String             @db.Text
+  answerId       String
+  answer         DiscussionAnswer   @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  
+  @@index([answerId])
+  @@index([authorId])
+}
+
+model DiscussionVote {
+  id             String             @id @default(cuid())
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voteType       String             // UPVOTE | DOWNVOTE
+  
+  discussionId   String?
+  discussion     Discussion?        @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  answerId       String?
+  answer         DiscussionAnswer?  @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime           @default(now())
+  
+  @@unique([userId, discussionId])
+  @@unique([userId, answerId])
+}
+
+model Poll {
+  id             String             @id @default(cuid())
+  title          String
+  description    String?            @db.Text
+  category       String
+  technology     String?
+  durationDays   Int                @default(7)
+  visibility     String             @default("public")
+  pollType       String             @default("single") // single | multiple | yes_no | ranking
+  isAnonymous    Boolean            @default(false)
+  isClosed       Boolean            @default(false)
+  expiresAt      DateTime
+  
+  authorId       String
+  author         User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  
+  options        PollOption[]
+  votes          PollVote[]
+  
+  @@index([authorId])
+}
+
+model PollOption {
+  id             String             @id @default(cuid())
+  text           String
+  imageUrl       String?
+  pollId         String
+  poll           Poll               @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes          PollVote[]
+}
+
+model PollVote {
+  id             String             @id @default(cuid())
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pollId         String
+  poll           Poll               @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  optionId       String
+  option         PollOption         @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  ipAddress      String?
+  createdAt      DateTime           @default(now())
+  
+  @@unique([userId, pollId])
+}
+
+model PlatformEvent {
+  id             String             @id @default(cuid())
+  title          String
+  slug           String             @unique
+  banner         String?
+  logo           String?
+  description    String             @db.Text
+  eventType      String             // HACKATHON | WORKSHOP | BOOTCAMP | WEBINAR | MEETUP | CONTEST
+  organizerId    String
+  organizer      User               @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  
+  startAt        DateTime
+  endAt          DateTime
+  deadlineAt     DateTime
+  minTeamSize    Int                @default(1)
+  maxTeamSize    Int                @default(4)
+  onlineOffline  String             @default("online") // online | offline
+  venue          String?
+  mapUrl         String?
+  allowedColleges String[]          @default([])
+  eligibility    String?            @db.Text
+  contactEmail   String
+  discordUrl     String?
+  whatsappUrl    String?
+  websiteUrl     String?
+  certificate    Boolean            @default(false)
+  
+  prizes         String?            @db.Text // JSON or Text
+  rules          String?            @db.Text
+  faq            String?            @db.Text // JSON or Text
+  timelineJson   String?            @db.Text // JSON agenda
+  judgesJson     String?            @db.Text // JSON judges
+  sponsorsJson   String?            @db.Text // JSON sponsors
+  
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  
+  registrations  EventRegistration[]
+  
+  @@index([slug])
+}
+
+model EventRegistration {
+  id             String             @id @default(cuid())
+  eventId        String
+  event          PlatformEvent      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  fullName       String
+  email          String
+  phone          String?
+  college        String?
+  university     String?
+  company        String?
+  role           String?
+  githubUrl      String?
+  linkedinUrl    String?
+  resumeUrl      String?
+  teamName       String?
+  teamMembers    String[]           @default([]) // Array of member emails
+  customAnswers  String?            @db.Text // JSON responses
+  consent        Boolean            @default(true)
+  checkedIn      Boolean            @default(false)
+  
+  createdAt      DateTime           @default(now())
+  
+  @@unique([eventId, userId])
+}
+
+model CuratedRoadmap {
+  id             String             @id @default(cuid())
+  title          String
+  slug           String             @unique
+  description    String             @db.Text
+  difficulty     String             @default("intermediate") // beginner | intermediate | advanced
+  duration       String             // E.g. "6 weeks"
+  prerequisites  String[]           @default([])
+  isPublished    Boolean            @default(false)
+  
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  
+  steps          RoadmapStepNode[]
+  progress       UserRoadmapProgress[]
+  suggestions    RoadmapSuggestion[]
+  
+  @@index([slug])
+}
+
+model RoadmapStepNode {
+  id             String             @id @default(cuid())
+  roadmapId      String
+  roadmap        CuratedRoadmap     @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?            @db.Text
+  parentId       String?
+  parent         RoadmapStepNode?   @relation("StepHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children       RoadmapStepNode[]  @relation("StepHierarchy")
+  orderIndex     Int                @default(0)
+  
+  // Resource references
+  resourcesJson  String?            @db.Text // JSON resources list
+  relatedContent String?            @db.Text // JSON links to other items on platform
+}
+
+model UserRoadmapProgress {
+  id             String             @id @default(cuid())
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roadmapId      String
+  roadmap        CuratedRoadmap     @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  completedSteps String[]           @default([]) // Completed StepNode IDs
+  updatedAt      DateTime           @updatedAt
+  
+  @@unique([userId, roadmapId])
+}
+
+model RoadmapSuggestion {
+  id             String             @id @default(cuid())
+  roadmapId      String?
+  roadmap        CuratedRoadmap?    @relation(fields: [roadmapId], references: [id], onDelete: SetNull)
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  description    String             @db.Text
+  type           String             // new_roadmap | edit_step | outdated_step
+  status         String             @default("pending") // pending | approved | rejected
+  createdAt      DateTime           @default(now())
+}
+
+model PlatformResource {
+  id             String             @id @default(cuid())
+  title          String
+  url            String
+  description    String?            @db.Text
+  category       String
+  technology     String?
+  difficulty     String?
+  upvotes        Int                @default(0)
+  
+  authorId       String
+  author         User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model AccountVerification {
+  id        String   @id @default(cuid())
+  email     String
+  code      String   // Secure token or 6-digit code
+  type      String   // "VERIFY_EMAIL" | "PASSWORD_RESET"
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([code])
+  @@index([email])
+}
+
+model UserSession {
+  id           String   @id @default(cuid())
+  userId       String
+  sessionToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  deviceType   String?  // Desktop | Mobile | Tablet
+  browser      String?  // Chrome | Firefox | Safari
+  os           String?  // Windows | macOS | iOS | Android
+  location     String?  // Country/City inferred
+  lastActiveAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuthAuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String
+  event     String   // SIGNUP | LOGIN_SUCCESS | LOGIN_FAILED | PASSWORD_RESET_REQ | VERIFICATION_SUCCESS
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+}
+
+model RateLimit {
+  id        String   @id @default(cuid())
+  key       String   // e.g. "login:127.0.0.1" or "resend:test@domain.com"
+  count     Int      @default(1)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([key])
+}
+
