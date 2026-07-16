@@ -723,3 +723,19 @@ export async function createCategoryAction(name: string, description?: string) {
     return { success: false, error: err.message || 'Failed to create category.' };
   }
 }
+
+// 11. Fetch Project Versions (Revisions)
+export async function getVersionsAction(projectId: string) {
+  try {
+    await checkAuth('Creator');
+    const versions = await cmsDb.getVersions(projectId);
+    const serialized = versions.map(v => ({
+      ...v,
+      createdAt: v.createdAt.toISOString()
+    }));
+    return { success: true, versions: serialized };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'SERVER_ERROR' };
+  }
+}
+

@@ -20,17 +20,22 @@ import {
   Eye,
   FileCheck,
   Search,
-  BookOpen
+  BookOpen,
+  History,
+  GitBranch,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button, Card, Input } from '@/components/ui/core';
 import { CmsProjectSchema, CmsProjectInput } from '@/lib/validation/cms';
-import { saveProjectAction, generateAiContentAction, createCategoryAction } from '@/lib/actions/cms';
+import { saveProjectAction, generateAiContentAction, createCategoryAction, getVersionsAction } from '@/lib/actions/cms';
 import TipTapEditor from './TipTapEditor';
 import ImageUploadField from './ImageUploadField';
 import { SeoEngine, SeoAuditResult } from '@/lib/seo/SeoEngine';
 import { QualityScoreEngine } from '@/lib/seo/QualityScoreEngine';
+import { migrateContentToTipTapJson } from '@/lib/migration/contentMigration';
+import TipTapRenderer from '../ui/TipTapRenderer';
 
 interface ProjectEditorWizardProps {
   project: any | null; // CmsProject or null
@@ -55,6 +60,58 @@ const STEPS = [
   { id: 'share', name: '6. Share' },
 ];
 
+// Custom Line-by-Line Diff Function for Revisions Comparison
+function computeDiff(oldText: string, newText: string) {
+  const oldLines = oldText.split('\n');
+  const newLines = newText.split('\n');
+  const diff: { type: 'added' | 'removed' | 'unchanged'; text: string }[] = [];
+  
+  let i = 0, j = 0;
+  while (i < oldLines.length || j < newLines.length) {
+    if (i < oldLines.length && j < newLines.length) {
+      if (oldLines[i] === newLines[j]) {
+        diff.push({ type: 'unchanged', text: oldLines[i] });
+        i++;
+        j++;
+      } else {
+        let foundMatch = false;
+        // Simple search ahead heuristics
+        for (let k = 1; k < 5; k++) {
+          if (j + k < newLines.length && oldLines[i] === newLines[j + k]) {
+            for (let m = 0; m < k; m++) {
+              diff.push({ type: 'added', text: newLines[j + m] });
+            }
+            j += k;
+            foundMatch = true;
+            break;
+          }
+          if (i + k < oldLines.length && oldLines[i + k] === newLines[j]) {
+            for (let m = 0; m < k; m++) {
+              diff.push({ type: 'removed', text: oldLines[i + m] });
+            }
+            i += k;
+            foundMatch = true;
+            break;
+          }
+        }
+        if (!foundMatch) {
+          diff.push({ type: 'removed', text: oldLines[i] });
+          diff.push({ type: 'added', text: newLines[j] });
+          i++;
+          j++;
+        }
+      }
+    } else if (i < oldLines.length) {
+      diff.push({ type: 'removed', text: oldLines[i] });
+      i++;
+    } else if (j < newLines.length) {
+      diff.push({ type: 'added', text: newLines[j] });
+      j++;
+    }
+  }
+  return diff;
+}
+
 export default function ProjectEditorWizard({ project, categories = [] }: ProjectEditorWizardProps) {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState<string>('basic');
@@ -62,7 +119,6 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
   // Dynamic Category state management
   const initialCategories = useMemo(() => {
     const list = [...categories];
-    // Add default ones if they are not already in the database list
     DEFAULT_CATEGORIES.forEach(d => {
       if (!list.some(c => c.name.toLowerCase() === d.name.toLowerCase() || c.slug === d.slug)) {
         list.push(d);
@@ -76,6 +132,15 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDesc, setNewCategoryDesc] = useState('');
   const [isAddingCategory, setIsAddingCategory] = useState(false);
+
+  // Recovery Draft & Revisions States
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [recoveredDraft, setRecoveredDraft] = useState<any>(null);
+  
+  const [showRevisionsSidebar, setShowRevisionsSidebar] = useState(false);
+  const [revisionsList, setRevisionsList] = useState<any[]>([]);
+  const [selectedRevision, setSelectedRevision] = useState<any>(null);
+  const [revisionDiff, setRevisionDiff] = useState<any[]>([]);
 
   useEffect(() => {
     setCategoriesList(initialCategories);
@@ -104,12 +169,13 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
       setIsAddingCategory(false);
     }
   };
+
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiOutput, setAiOutput] = useState('');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [serpTab, setSerpTab] = useState<'google' | 'twitter' | 'facebook'>('google');
 
-  // Autosave status: idle | saving | saved | offline | error
+  // Autosave status
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'offline' | 'error'>('saved');
   const [isDirtyState, setIsDirtyState] = useState(false);
 
@@ -152,7 +218,125 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
 
   const formValues = watch();
 
-  // Live SEO Audit Analysis using our SEO Engine
+  // Content Quality Score analysis
+  const qualityAnalysis = useMemo(() => {
+    return QualityScoreEngine.analyze(formValues.title || '', formValues.content || '');
+  }, [formValues.title, formValues.content]);
+
+  // Sync Quality Score to Form state
+  useEffect(() => {
+    setValue('qualityScore', qualityAnalysis.score, { shouldDirty: false });
+  }, [qualityAnalysis.score, setValue]);
+
+  // Backward compatible migration on load
+  useEffect(() => {
+    async function migrate() {
+      if (project?.content) {
+        const parsed = await migrateContentToTipTapJson(project.content);
+        setValue('content', JSON.stringify(parsed), { shouldDirty: false });
+      }
+    }
+    migrate();
+  }, [project?.content, setValue]);
+
+  // Check and prompt local draft recovery on mount
+  useEffect(() => {
+    const queued = localStorage.getItem(`sm_draft_queue_${project?.id || 'new'}`);
+    if (queued) {
+      try {
+        const parsed = JSON.parse(queued);
+        // Only trigger recovery if the draft contains changes compared to database
+        if (parsed.content && parsed.content !== project?.content) {
+          setRecoveredDraft(parsed);
+          setShowRecoveryModal(true);
+        }
+      } catch (e) { }
+    }
+  }, [project]);
+
+  // Restore recovered draft
+  const handleRestoreDraft = () => {
+    if (recoveredDraft) {
+      if (recoveredDraft.title) setValue('title', recoveredDraft.title, { shouldDirty: true });
+      if (recoveredDraft.slug) setValue('slug', recoveredDraft.slug, { shouldDirty: true });
+      if (recoveredDraft.content) setValue('content', recoveredDraft.content, { shouldDirty: true });
+      if (recoveredDraft.description) setValue('description', recoveredDraft.description, { shouldDirty: true });
+      setIsDirtyState(true);
+    }
+    setShowRecoveryModal(false);
+    setRecoveredDraft(null);
+  };
+
+  // Discard recovered draft
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(`sm_draft_queue_${project?.id || 'new'}`);
+    setShowRecoveryModal(false);
+    setRecoveredDraft(null);
+  };
+
+  // Fetch revisions list
+  const handleLoadRevisions = async () => {
+    if (!project?.id) return;
+    setShowRevisionsSidebar(true);
+    setSelectedRevision(null);
+    setRevisionDiff([]);
+    
+    const res = await getVersionsAction(project.id);
+    if (res.success && res.versions) {
+      setRevisionsList(res.versions);
+    }
+  };
+
+  // Display Revision Diff
+  const handleSelectRevision = (revision: any) => {
+    setSelectedRevision(revision);
+    
+    // Attempt parsing contents to extract displayable texts
+    let oldText = '';
+    let currentText = '';
+    
+    try {
+      const parsedOld = JSON.parse(revision.content);
+      // Fallback if content is TipTap JSON structured doc
+      oldText = parsedOld.content ? JSON.stringify(parsedOld, null, 2) : revision.content;
+    } catch {
+      oldText = revision.content || '';
+    }
+
+    try {
+      const parsedCurrent = JSON.parse(formValues.content || '{}');
+      currentText = parsedCurrent.content ? JSON.stringify(parsedCurrent, null, 2) : formValues.content;
+    } catch {
+      currentText = formValues.content || '';
+    }
+
+    const diffs = computeDiff(oldText, currentText);
+    setRevisionDiff(diffs);
+  };
+
+  // Restore selected revision to editor
+  const handleRestoreRevision = () => {
+    if (!selectedRevision) return;
+    try {
+      const parsed = JSON.parse(selectedRevision.content);
+      if (parsed.content) {
+        setValue('content', selectedRevision.content, { shouldDirty: true });
+        if (parsed.title) setValue('title', parsed.title, { shouldDirty: true });
+        if (parsed.description) setValue('description', parsed.description, { shouldDirty: true });
+        setIsDirtyState(true);
+      } else {
+        setValue('content', selectedRevision.content, { shouldDirty: true });
+      }
+    } catch {
+      setValue('content', selectedRevision.content, { shouldDirty: true });
+    }
+    setShowRevisionsSidebar(false);
+    setSelectedRevision(null);
+    setRevisionDiff([]);
+    alert('Revision loaded in editor! Save post to apply changes.');
+  };
+
+  // Live SEO Audit Analysis
   const seoAnalysis = useMemo(() => {
     return SeoEngine.analyze({
       title: formValues.title || '',
@@ -177,12 +361,12 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
     formValues.schemaJson
   ]);
 
-  // Sync SEO Score into formState so it can be saved in Postgres
+  // Sync SEO Score into Zod
   useEffect(() => {
     setValue('seoScore', seoAnalysis.score, { shouldDirty: false });
   }, [seoAnalysis.score, setValue]);
 
-  // Watch Title and generate Slug automatically in create mode
+  // Auto slug generation
   const titleVal = watch('title');
   useEffect(() => {
     if (!project && titleVal) {
@@ -194,19 +378,6 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
     }
   }, [titleVal, project, setValue]);
 
-  // Content Quality Score engine analysis
-  const qualityAnalysis = useMemo(() => {
-    return QualityScoreEngine.analyze(formValues.title || '', formValues.content || '');
-  }, [formValues.title, formValues.content]);
-
-  // Sync Quality Score to Zod state
-  useEffect(() => {
-    setValue('qualityScore', qualityAnalysis.score, { shouldDirty: false });
-  }, [qualityAnalysis.score, setValue]);
-
-  const [acceptedGuidelines, setAcceptedGuidelines] = useState(false);
-  const [newPostUrl, setNewPostUrl] = useState('');
-
   // Track changes to trigger autosave
   useEffect(() => {
     setIsDirtyState(true);
@@ -217,10 +388,8 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
   const triggerAutosave = useCallback(async (values: CmsProjectInput) => {
     if (!isDirtyState) return;
 
-    // Check Network connectivity
     if (typeof window !== 'undefined' && !navigator.onLine) {
       setSaveStatus('offline');
-      // Buffer in offline queue
       localStorage.setItem(`sm_draft_queue_${project?.id || 'new'}`, JSON.stringify(values));
       return;
     }
@@ -229,17 +398,15 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
     try {
       const res = await saveProjectAction(project?.id || null, {
         ...values,
-        status: project?.status || 'draft', // Keep original status during autosaves
-        versionNote: values.versionNote || 'Autosaved revision',
+        status: project?.status || 'draft',
+        versionNote: values.versionNote || 'Autosaved revision snapshot',
       });
 
       if (res.success) {
         setSaveStatus('saved');
         setIsDirtyState(false);
-        // Clear offline draft recovery queue
         localStorage.removeItem(`sm_draft_queue_${project?.id || 'new'}`);
         if (!project && res.project) {
-          // If we created a new project, redirect to edit path without full page reload
           router.replace(`/admin/projects/edit/${res.project.id}`);
         }
       } else {
@@ -250,7 +417,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
     }
   }, [project, isDirtyState, router]);
 
-  // Autosave execution: check changes every 5 seconds
+  // Autosave execution
   useEffect(() => {
     const timer = setInterval(() => {
       if (isDirtyState) {
@@ -288,7 +455,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirtyState, saveStatus]);
 
-  // AI Content Generator helper
+  // AI Content assistant
   const runAiAssistant = async (mode: 'summarize' | 'rewrite' | 'faq' | 'seo') => {
     const promptSource = mode === 'seo' ? formValues.title : formValues.content;
     if (!promptSource) {
@@ -321,6 +488,9 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
     setIsAiLoading(false);
   };
 
+  const [acceptedGuidelines, setAcceptedGuidelines] = useState(false);
+  const [newPostUrl, setNewPostUrl] = useState('');
+
   // Submit / Publish Final Form
   const onFormSubmit = async (data: CmsProjectInput) => {
     if (!acceptedGuidelines && data.status === 'published') {
@@ -351,12 +521,140 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
     }
   };
 
-  // Computed live audits for previews
   const wordCount = formValues.content ? formValues.content.split(/\s+/).filter(Boolean).length : 0;
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
   return (
-    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6 pb-12">
+    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6 pb-12 relative select-text">
+      
+      {/* Draft recovery Modal */}
+      {showRecoveryModal && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1c1c1e] border border-white/10 rounded-2xl p-5 max-w-md w-full shadow-premium space-y-4">
+            <div className="flex items-center gap-2.5 text-accent-cyan font-bold border-b border-white/5 pb-2.5">
+              <Sparkles className="w-5 h-5 animate-pulse" />
+              <span>Restorable Draft Found</span>
+            </div>
+            <p className="text-xs text-stone leading-relaxed">
+              We found an unsaved offline draft for this post in your local browser history. Do you want to restore it and continue writing?
+            </p>
+            <div className="flex justify-end gap-2 pt-2.5">
+              <Button type="button" variant="ghost" className="h-8 text-[11px]" onClick={handleDiscardDraft}>
+                Discard
+              </Button>
+              <Button type="button" variant="primary" className="h-8 text-[11px]" onClick={handleRestoreDraft}>
+                Restore Draft
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Version History Sidebar */}
+      {showRevisionsSidebar && (
+        <div className="fixed top-0 right-0 bottom-0 w-80 z-50 bg-[#1c1c1e] border-l border-white/10 p-5 shadow-premium flex flex-col justify-between animate-in slide-in-from-right duration-200 select-none">
+          <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3.5 mb-4 shrink-0">
+              <h3 className="text-xs font-bold text-warm-white uppercase tracking-wider flex items-center gap-1.5">
+                <History className="w-4 h-4 text-accent-cyan" />
+                <span>Revisions History</span>
+              </h3>
+              <button type="button" onClick={() => setShowRevisionsSidebar(false)} className="text-stone hover:text-warm-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2.5 pr-1">
+              {revisionsList.length === 0 ? (
+                <div className="text-center text-xs text-stone py-8 font-light">No historical revisions found.</div>
+              ) : (
+                revisionsList.map((rev) => (
+                  <button
+                    key={rev.id}
+                    type="button"
+                    onClick={() => handleSelectRevision(rev)}
+                    className={`w-full text-left p-3 rounded-xl border transition-all text-xs flex flex-col gap-1.5 cursor-pointer
+                      ${selectedRevision?.id === rev.id 
+                        ? 'bg-accent-cyan/5 border-accent-cyan/35 text-accent-cyan' 
+                        : 'bg-white/5 border-white/5 text-stone hover:border-white/10 hover:text-warm-white'}
+                    `}
+                  >
+                    <div className="flex items-center justify-between w-full font-mono text-[10px]">
+                      <span className="font-bold flex items-center gap-1">
+                        <GitBranch className="w-3.5 h-3.5" />
+                        {new Date(rev.createdAt).toLocaleDateString()}
+                      </span>
+                      <span>{new Date(rev.createdAt).toLocaleTimeString()}</span>
+                    </div>
+                    <p className="text-[10.5px] font-light leading-snug break-words">
+                      {rev.versionNote || 'No summary notes added.'}
+                    </p>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Action on selected revision */}
+          {selectedRevision && (
+            <div className="border-t border-white/5 pt-4 mt-4 space-y-3.5 shrink-0">
+              <span className="text-[10px] uppercase font-bold text-stone">Selected Revision Diff</span>
+              <button 
+                type="button" 
+                onClick={handleRestoreRevision}
+                className="w-full justify-center h-9 text-[11px] bg-accent-cyan/15 hover:bg-accent-cyan/25 border border-accent-cyan/20 text-accent-cyan font-bold rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                Restore Selected Version
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Revision Diff Comparison Dialog Overlay */}
+      {selectedRevision && revisionDiff.length > 0 && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center bg-black/70 backdrop-blur-sm p-6 select-text animate-in fade-in duration-150">
+          <div className="bg-[#1c1c1e] border border-white/10 rounded-2xl p-6 max-w-2xl w-full h-[520px] shadow-premium flex flex-col justify-between">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <div className="space-y-0.5">
+                <h4 className="text-xs font-bold text-warm-white uppercase tracking-wider flex items-center gap-1.5">
+                  <GitBranch className="w-4 h-4 text-accent-cyan" />
+                  <span>Revision Diffs</span>
+                </h4>
+                <span className="text-[10px] text-stone font-mono">Restored preview vs Current Workspace editor</span>
+              </div>
+              <button type="button" onClick={() => { setSelectedRevision(null); setRevisionDiff([]); }} className="text-stone hover:text-warm-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 my-4 overflow-y-auto bg-onyx/80 border border-white/5 rounded-xl p-4 font-mono text-[11.5px] leading-relaxed custom-scrollbar select-text space-y-0.5">
+              {revisionDiff.map((line, idx) => (
+                <div 
+                  key={idx} 
+                  className={`px-1.5 py-0.5 rounded break-all whitespace-pre-wrap
+                    ${line.type === 'added' ? 'bg-accent-emerald/10 text-accent-emerald border-l-2 border-accent-emerald' : ''}
+                    ${line.type === 'removed' ? 'bg-accent-pink/10 text-accent-pink border-l-2 border-accent-pink line-through' : ''}
+                    ${line.type === 'unchanged' ? 'text-stone/60' : ''}
+                  `}
+                >
+                  {line.type === 'added' ? '+ ' : line.type === 'removed' ? '- ' : '  '}{line.text}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-white/5 pt-3">
+              <Button type="button" variant="ghost" onClick={() => { setSelectedRevision(null); setRevisionDiff([]); }} className="h-8 text-[11px]">
+                Close Diffs
+              </Button>
+              <Button type="button" variant="primary" onClick={handleRestoreRevision} className="h-8 text-[11px] bg-accent-cyan/10 border-accent-cyan/15 text-accent-cyan hover:bg-accent-cyan/20">
+                Restore Version
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Wizard Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/5 pb-4">
         <div className="flex items-center gap-3">
@@ -374,7 +672,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
           </div>
         </div>
 
-        {/* Autosave Status Badge */}
+        {/* Autosave Status Badge & History controls */}
         <div className="flex items-center gap-4 text-[11px] font-mono">
           {saveStatus === 'saving' && (
             <span className="text-accent-cyan flex items-center gap-1.5 animate-pulse">
@@ -404,6 +702,13 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
             <span className="text-stone">
               Unsaved changes...
             </span>
+          )}
+
+          {project?.id && (
+            <Button type="button" onClick={handleLoadRevisions} variant="secondary" className="h-7 text-[10px] px-2.5 flex items-center gap-1 shrink-0">
+              <History className="w-3.5 h-3.5" />
+              <span>Versions</span>
+            </Button>
           )}
 
           <Button type="button" onClick={() => triggerAutosave(formValues as CmsProjectInput)} variant="secondary" className="h-7 text-[10px] px-2.5">
@@ -604,7 +909,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
             </div>
 
             {isAiLoading && (
-              <div className="p-3 bg-white/5 border border-white/5 rounded-xl flex items-center justify-center gap-2 text-[11px] text-stone">
+              <div className="p-3 bg-white/5 border border-white/5 rounded-xl flex items-center justify-center gap-2 text-[11px] text-stone font-mono">
                 <RefreshCw className="w-4 h-4 animate-spin text-accent-cyan" />
                 Running model inferences...
               </div>
@@ -650,7 +955,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
               <div className="space-y-1.5 pt-2 max-h-[180px] overflow-y-auto custom-scrollbar">
                 {qualityAnalysis.suggestions.length > 0 ? (
                   qualityAnalysis.suggestions.map((s, i) => (
-                    <div key={i} className="flex items-start gap-1.5 text-[10.5px] text-stone/80">
+                     <div key={i} className="flex items-start gap-1.5 text-[10.5px] text-stone/80">
                       <span className="text-accent-orange font-bold shrink-0">•</span>
                       <span>{s}</span>
                     </div>
@@ -664,7 +969,74 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
         </motion.div>
       )}
 
-      {/* STEP 3: SEO STUDIO */}
+      {/* STEP 3: RESPONSIVE PREVIEW (USES TipTapRenderer FOR 100% VISUAL MATCHING) */}
+      {activeStep === 'preview' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          <div className="flex items-center justify-center gap-3 bg-charcoal/20 border border-white/5 rounded-xl p-2.5 max-w-sm mx-auto select-none">
+            <button
+              type="button"
+              onClick={() => setPreviewDevice('desktop')}
+              className={`p-2 rounded-lg cursor-pointer ${previewDevice === 'desktop' ? 'bg-white/10 text-warm-white font-bold' : 'text-stone hover:text-warm-white'}`}
+            >
+              <Monitor className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewDevice('tablet')}
+              className={`p-2 rounded-lg cursor-pointer ${previewDevice === 'tablet' ? 'bg-white/10 text-warm-white font-bold' : 'text-stone hover:text-warm-white'}`}
+            >
+              <TabletIcon className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewDevice('mobile')}
+              className={`p-2 rounded-lg cursor-pointer ${previewDevice === 'mobile' ? 'bg-white/10 text-warm-white font-bold' : 'text-stone hover:text-warm-white'}`}
+            >
+              <Smartphone className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex justify-center w-full">
+            <div
+              className={`bg-charcoal/30 border border-white/10 rounded-2xl overflow-hidden shadow-premium transition-all duration-300 flex flex-col
+                ${previewDevice === 'desktop' ? 'w-full max-w-4xl h-[520px]' : ''}
+                ${previewDevice === 'tablet' ? 'w-[640px] h-[520px]' : ''}
+                ${previewDevice === 'mobile' ? 'w-[360px] h-[520px]' : ''}
+              `}
+            >
+              <div className="bg-charcoal/40 border-b border-white/5 px-4 py-2 text-[10px] font-mono text-stone/85 flex items-center justify-between select-none">
+                <span>https://studymaterial.utool.in/preview/{formValues.slug || 'untitled'}</span>
+                <span className="uppercase text-accent-cyan tracking-wider font-bold">Unified Renderer Preview</span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8 bg-onyx text-warm-white custom-scrollbar select-text text-left">
+                {formValues.coverImage && (
+                  <img
+                    src={formValues.coverImage}
+                    alt="cover"
+                    className="w-full h-44 object-cover rounded-xl border border-white/5 mb-6"
+                  />
+                )}
+                <div className="space-y-4">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-accent-cyan">{formValues.category || 'general'}</span>
+                  <h1 className="text-3xl font-extrabold tracking-tight">{formValues.title || 'Untitled Project Document'}</h1>
+                  <div className="flex items-center gap-3 text-[11px] text-stone border-b border-white/5 pb-4 mb-4 font-mono select-none">
+                    <span>Reading: {readingTime} min</span>
+                    <span>•</span>
+                    <span>Language: {formValues.language}</span>
+                  </div>
+                  
+                  {/* Unified TipTapRenderer used for identical Preview output */}
+                  <TipTapRenderer content={formValues.content} />
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* STEP 4: SEO STUDIO */}
       {activeStep === 'seo' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <Card className="lg:col-span-8 p-6 space-y-6">
@@ -680,7 +1052,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
                 className="text-[10px] py-1 flex items-center gap-1.5"
                 disabled={isAiLoading}
               >
-                <Sparkles className="w-3.5 h-3.5 text-accent-violet animate-pulse-slow" />
+                <Sparkles className="w-3.5 h-3.5 text-accent-violet animate-pulse" />
                 <span>AI Generate Metas</span>
               </Button>
             </div>
@@ -716,18 +1088,16 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
                 </div>
               )}
 
-              {/* Smart Keywords with auto-comma */}
               <div className="flex flex-col gap-1.5 w-full">
                 <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">Focus Keywords (Comma Separated)</label>
                 <input
                   {...register('seoKeywords')}
-                  placeholder="e.g. Next.js 16, React Compiler, server components"
+                  placeholder="e.g. Next.js, React Compiler, server components"
                   className="w-full px-3 py-2 text-[13px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none transition-all duration-200 focus:border-white/20 focus:bg-charcoal/40 focus:ring-1 focus:ring-white/10 placeholder:text-stone/60"
                   onPaste={(e) => {
                     e.preventDefault();
                     const pasted = e.clipboardData.getData('text/plain').trim();
                     const current = (formValues.seoKeywords || '').trim();
-                    // Normalize: split by newlines, tabs, semicolons, pipes, or commas → rejoin with comma+space
                     const keywords = pasted
                       .split(/[\n\r\t;|,]+/)
                       .map((k: string) => k.trim())
@@ -738,101 +1108,26 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
                       : normalized;
                     setValue('seoKeywords', newValue, { shouldDirty: true });
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      const val = (formValues.seoKeywords || '').trim();
-                      if (val && !val.endsWith(',')) {
-                        setValue('seoKeywords', val + ', ', { shouldDirty: true });
-                      }
-                    }
-                  }}
                 />
-                {formValues.seoKeywords && (
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {formValues.seoKeywords.split(',').map((kw: string, idx: number) => {
-                      const trimmed = kw.trim();
-                      if (!trimmed) return null;
-                      return (
-                        <span key={idx} className="px-2 py-0.5 rounded-md bg-accent-cyan/10 border border-accent-cyan/15 text-[10px] text-accent-cyan font-medium">
-                          {trimmed}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-                <p className="text-[10px] text-stone/50 mt-0.5">Paste keywords from any format — they auto-normalize to comma-separated. Press Enter to add a separator.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Smart Canonical URL */}
                 <div className="flex flex-col gap-1.5 w-full">
                   <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">Canonical URL</label>
                   <input
                     {...register('canonical')}
                     placeholder="Auto-generated from slug"
-                    className="w-full px-3 py-2 text-[13px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none transition-all duration-200 focus:border-white/20 focus:bg-charcoal/40 focus:ring-1 focus:ring-white/10 placeholder:text-stone/60"
+                    className="w-full px-3 py-2 text-[13px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/20"
                   />
-                  {!formValues.canonical && formValues.slug && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const baseUrl = typeof window !== 'undefined'
-                          ? window.location.origin
-                          : 'https://studymaterial.utool.in';
-                        setValue('canonical', `${baseUrl}/posts/${formValues.slug}`, { shouldDirty: true });
-                      }}
-                      className="flex items-center gap-1.5 text-[10px] text-accent-cyan hover:text-accent-cyan/80 cursor-pointer transition-colors w-fit"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span>Auto-generate: /posts/{formValues.slug}</span>
-                    </button>
-                  )}
-                  {formValues.canonical && (
-                    <span className="text-[10px] text-accent-emerald font-mono truncate">✓ {formValues.canonical}</span>
-                  )}
                 </div>
 
-                {/* Robots Rules with Template Selector */}
                 <div className="flex flex-col gap-1.5 w-full">
                   <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">Robots Rules</label>
                   <input
                     {...register('robots')}
                     placeholder="index, follow"
-                    className="w-full px-3 py-2 text-[13px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none transition-all duration-200 focus:border-white/20 focus:bg-charcoal/40 focus:ring-1 focus:ring-white/10 placeholder:text-stone/60"
+                    className="w-full px-3 py-2 text-[13px] bg-charcoal/20 border border-white/5 rounded-lg text-warm-white outline-none focus:border-white/20"
                   />
-                  <div className="flex flex-wrap gap-1 mt-0.5">
-                    {[
-                      { value: 'index, follow', label: 'Index & Follow', hint: 'Default — crawl and follow links', color: 'text-accent-emerald border-accent-emerald/20 bg-accent-emerald/5' },
-                      { value: 'noindex, follow', label: 'No Index', hint: 'Hide from search, follow links', color: 'text-accent-orange border-accent-orange/20 bg-accent-orange/5' },
-                      { value: 'index, nofollow', label: 'No Follow', hint: 'Index page but don\'t follow links', color: 'text-accent-cyan border-accent-cyan/20 bg-accent-cyan/5' },
-                      { value: 'noindex, nofollow', label: 'Block All', hint: 'Hide completely from search engines', color: 'text-accent-pink border-accent-pink/20 bg-accent-pink/5' },
-                      { value: 'noindex, nofollow, noarchive', label: 'Block + No Cache', hint: 'Block crawling and cached copies', color: 'text-accent-pink border-accent-pink/20 bg-accent-pink/5' },
-                    ].map(template => (
-                      <button
-                        key={template.value}
-                        type="button"
-                        title={template.hint}
-                        onClick={() => setValue('robots', template.value, { shouldDirty: true })}
-                        className={`px-1.5 py-0.5 rounded border text-[9px] font-medium cursor-pointer transition-all hover:opacity-80 ${
-                          formValues.robots === template.value
-                            ? template.color + ' font-bold'
-                            : 'text-stone/60 border-white/5 bg-transparent hover:border-white/10'
-                        }`}
-                      >
-                        {template.label}
-                      </button>
-                    ))}
-                  </div>
-                  {formValues.robots && (
-                    <p className="text-[9px] text-stone/40 mt-0.5 font-mono">
-                      {formValues.robots === 'index, follow' && '✓ Search engines will crawl this page and follow all outbound links.'}
-                      {formValues.robots === 'noindex, follow' && '⚠ Page hidden from search results, but links will be followed.'}
-                      {formValues.robots === 'index, nofollow' && '⚠ Page indexed, but outbound links will NOT pass authority.'}
-                      {formValues.robots === 'noindex, nofollow' && '🚫 Page is fully hidden — not indexed and links are not followed.'}
-                      {formValues.robots === 'noindex, nofollow, noarchive' && '🚫 Fully blocked — not indexed, not followed, and no cached copy stored.'}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -845,7 +1140,6 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
                 />
               </div>
 
-              {/* Live SERP previews panel */}
               <div className="border-t border-white/5 pt-6 mt-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-[12px] font-bold text-warm-white uppercase tracking-wider">SERP Snippet Previews</h4>
@@ -926,11 +1220,9 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
                   )}
                 </div>
               </div>
-
             </div>
           </Card>
 
-          {/* SEO Score bar & live audits */}
           <Card className="lg:col-span-4 p-5 space-y-4">
             <h3 className="text-[13px] font-bold text-warm-white uppercase tracking-wider">SEO Index Audit</h3>
 
@@ -952,7 +1244,6 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
               />
             </div>
 
-            {/* Diagnostic checklist */}
             <div className="pt-3 border-t border-white/5 space-y-3">
               <span className="text-[10px] text-stone uppercase tracking-wider font-semibold block">Audit Reports ({seoAnalysis.audits.length})</span>
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
@@ -975,78 +1266,6 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
               </div>
             </div>
           </Card>
-        </motion.div>
-      )}
-
-      {/* STEP 4: RESPONSIVE PREVIEW */}
-      {activeStep === 'preview' && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-          {/* Device Toggles */}
-          <div className="flex items-center justify-center gap-3 bg-charcoal/20 border border-white/5 rounded-xl p-2.5 max-w-sm mx-auto">
-            <button
-              type="button"
-              onClick={() => setPreviewDevice('desktop')}
-              className={`p-2 rounded-lg cursor-pointer ${previewDevice === 'desktop' ? 'bg-white/10 text-warm-white font-bold' : 'text-stone hover:text-warm-white'}`}
-            >
-              <Monitor className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreviewDevice('tablet')}
-              className={`p-2 rounded-lg cursor-pointer ${previewDevice === 'tablet' ? 'bg-white/10 text-warm-white font-bold' : 'text-stone hover:text-warm-white'}`}
-            >
-              <TabletIcon className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreviewDevice('mobile')}
-              className={`p-2 rounded-lg cursor-pointer ${previewDevice === 'mobile' ? 'bg-white/10 text-warm-white font-bold' : 'text-stone hover:text-warm-white'}`}
-            >
-              <Smartphone className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Simulated Device Sandbox Container */}
-          <div className="flex justify-center w-full">
-            <div
-              className={`bg-charcoal/30 border border-white/10 rounded-2xl overflow-hidden shadow-premium transition-all duration-300 flex flex-col
-                ${previewDevice === 'desktop' ? 'w-full max-w-4xl h-[520px]' : ''}
-                ${previewDevice === 'tablet' ? 'w-[640px] h-[520px]' : ''}
-                ${previewDevice === 'mobile' ? 'w-[360px] h-[520px]' : ''}
-              `}
-            >
-              {/* Device Header Simulator */}
-              <div className="bg-charcoal/40 border-b border-white/5 px-4 py-2 text-[10px] font-mono text-stone/85 flex items-center justify-between">
-                <span>https://studymaterial.utool.in/preview/{formValues.slug || 'untitled'}</span>
-                <span className="uppercase text-accent-cyan tracking-wider font-bold">Responsive View</span>
-              </div>
-
-              {/* Rendered Viewport */}
-              <div className="flex-1 overflow-y-auto p-8 bg-onyx text-warm-white custom-scrollbar select-text">
-                {formValues.coverImage && (
-                  <img
-                    src={formValues.coverImage}
-                    alt="cover"
-                    className="w-full h-36 object-cover rounded-xl border border-white/5 mb-6"
-                  />
-                )}
-                <div className="space-y-4">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-accent-cyan">{formValues.category || 'general'}</span>
-                  <h1 className="text-3xl font-extrabold tracking-tight">{formValues.title || 'Untitled Project Document'}</h1>
-                  <div className="flex items-center gap-3 text-[11px] text-stone border-b border-white/5 pb-4 mb-4">
-                    <span>Reading: {readingTime} min</span>
-                    <span>•</span>
-                    <span>Language: {formValues.language}</span>
-                  </div>
-                  {/* HTML render */}
-                  <div
-                    className="text-[13px] text-stone/95 leading-relaxed prose prose-invert max-w-none"
-                    dangerouslySetInnerHTML={{ __html: formValues.content }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
         </motion.div>
       )}
 
@@ -1076,7 +1295,6 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
               )}
             </div>
 
-            {/* Version rollback Note */}
             <div className="flex flex-col gap-1.5 w-full">
               <label className="text-[11px] font-semibold text-stone uppercase tracking-wider">
                 Version Release Note (Required for Audit Trail)
@@ -1089,7 +1307,6 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
               {errors.versionNote && <p className="text-accent-pink text-[11px] font-mono">{errors.versionNote.message}</p>}
             </div>
 
-            {/* Community Guidelines Checkbox */}
             {formValues.status === 'published' && (
               <div className="p-4 rounded-xl bg-onyx/40 border border-white/5 flex items-start gap-3">
                 <input
@@ -1105,7 +1322,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
               </div>
             )}
 
-            <Button type="submit" variant="primary" className="magnetic-item w-full py-2.5">
+            <Button type="submit" variant="primary" className="w-full py-2.5">
               <Save className="w-4 h-4" />
               <span>Confirm & Save Changes</span>
             </Button>
@@ -1161,7 +1378,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
                 href={`https://twitter.com/intent/tweet?text=Check out my latest post: ${encodeURIComponent(formValues.title)} ${encodeURIComponent(newPostUrl)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-center gap-2 p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-warm-white text-[12px] font-bold transition-all"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-warm-white text-[12px] font-bold transition-all text-center"
               >
                 <span>Share on X</span>
               </a>
@@ -1169,7 +1386,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
                 href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(newPostUrl)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-center gap-2 p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-warm-white text-[12px] font-bold transition-all"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-warm-white text-[12px] font-bold transition-all text-center"
               >
                 <span>Share on LinkedIn</span>
               </a>
@@ -1207,7 +1424,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
       )}
 
       {/* Bottom Step Nav Controls */}
-      <div className="flex justify-between items-center border-t border-white/5 pt-6">
+      <div className="flex justify-between items-center border-t border-white/5 pt-6 select-none">
         <Button
           type="button"
           variant="secondary"
