@@ -20,6 +20,8 @@ export const CmsProjectSchema = z.object({
   robots: z.string().optional().nullable(),
   schemaJson: z.string().optional().nullable(),
   seoScore: z.number().int().min(0).max(100),
+  qualityScore: z.number().int().min(0).max(100).optional(),
+  postHash: z.string().optional().nullable(),
   status: z.enum(['draft', 'review', 'approved', 'scheduled', 'published', 'archived']),
   scheduledAt: z.string().optional().nullable(),
   versionNote: z.string().max(200, 'Version note is too long').optional().nullable(),

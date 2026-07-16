@@ -3,7 +3,7 @@ import { MOCK_COURSES, MOCK_PROJECTS, MOCK_ROADMAP } from '../mockData';
 export interface SearchDocument {
   id: string; // unique document ID
   contentId: string; // original resource ID
-  contentType: 'blog' | 'project' | 'roadmap' | 'note' | 'resource' | 'question' | 'discussion' | 'poll' | 'event' | 'achievement' | 'certification';
+  contentType: 'blog' | 'project' | 'roadmap' | 'note' | 'resource' | 'question' | 'discussion' | 'poll' | 'event' | 'achievement' | 'certification' | 'user' | 'community' | 'tag' | 'comment';
   title: string;
   description: string;
   body: string;
@@ -93,6 +93,54 @@ class SearchIndexClass {
         difficulty: node.status === 'locked' ? 'Advanced' : 'Beginner',
         language: 'en',
         popularity: 120,
+        isVerified: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    // 4. Seed Mock Communities
+    const mockComms = ['React', 'Java', 'Next.js', 'DSA', 'AI', 'Open Source'];
+    mockComms.forEach(c => {
+      this.indexDocument({
+        id: `doc-comm-${c.toLowerCase()}`,
+        contentId: `comm_${c.toLowerCase()}`,
+        contentType: 'community',
+        title: `${c} Community Hub`,
+        description: `Discussions, roadmaps, and cheat sheets for ${c} engineering.`,
+        body: `Official verified community for ${c} developers. Rules: post high quality, no spam.`,
+        tags: [c.toLowerCase(), 'community', 'forum'],
+        category: c,
+        author: 'System',
+        difficulty: 'Beginner',
+        language: 'en',
+        popularity: 450,
+        isVerified: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    // 5. Seed Mock Users
+    const mockUsers = [
+      { name: 'Satyajit Mishra', username: 'satyajitmishra-dev', bio: 'Principal software engineer building visual builder tools.' },
+      { name: 'Emily Chen', username: 'emilychen', bio: 'AI researcher and web performance developer.' },
+      { name: 'Alex Rivera', username: 'arivera', bio: 'Spring Boot, JDK contributor, and Java developer.' }
+    ];
+    mockUsers.forEach(u => {
+      this.indexDocument({
+        id: `doc-user-${u.username}`,
+        contentId: `user_${u.username}`,
+        contentType: 'user',
+        title: u.name,
+        description: u.bio,
+        body: `Developer portfolio for @${u.username}. Skills: Next.js, Java, React.`,
+        tags: ['user', 'profile', 'developer'],
+        category: 'People',
+        author: u.username,
+        difficulty: 'Intermediate',
+        language: 'en',
+        popularity: 180,
         isVerified: true,
         createdAt: now,
         updatedAt: now,

@@ -68,10 +68,15 @@ export async function getActiveProject(): Promise<ProjectContext> {
     
     if (projects.length === 0) {
       // Create default project
+      const slugExists = await prisma.project.findUnique({
+        where: { slug: 'study-materials' }
+      });
+      const finalSlug = slugExists ? `study-materials-${Date.now().toString().slice(-4)}` : 'study-materials';
+
       const defaultProj = await prisma.project.create({
         data: {
           name: 'Study Materials',
-          slug: 'study-materials',
+          slug: finalSlug,
           organizationId: org.id
         }
       });

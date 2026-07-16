@@ -9,6 +9,7 @@ import CommandPalette from './CommandPalette';
 import UserDropdown from './UserDropdown';
 import CreateMenuDialog from './ui/CreateMenuDialog';
 import { Button } from '@/components/ui/core';
+import { Plus } from 'lucide-react';
 
 interface ClientShellProps {
   children: React.ReactNode;
@@ -91,16 +92,26 @@ export default function ClientShell({ children }: ClientShellProps) {
       )}
 
       {/* Main Content Area */}
-      <main className={`relative flex-1 z-10 ${isAdminPage ? 'p-4' : 'max-w-6xl w-full mx-auto pb-28'}`}>
+      <main className={`relative flex-1 z-10 ${isAdminPage ? 'p-4 pb-28 md:pb-4' : 'max-w-6xl w-full mx-auto pb-28'}`}>
         {children}
       </main>
 
       {/* Spatial Overlay Components (Dock hidden on Admin pages to avoid clutter) */}
       {!isAdminPage && (
-        <FloatingDock 
-          onSearchClick={() => setIsSearchOpen(true)} 
-          onCreateClick={() => setIsCreateOpen(true)} 
-        />
+        <>
+          <FloatingDock 
+            onSearchClick={() => setIsSearchOpen(true)} 
+            onCreateClick={() => setIsCreateOpen(true)} 
+          />
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-40 flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-gradient-to-r from-accent-cyan to-accent-violet hover:from-accent-cyan/95 hover:to-accent-violet/95 text-white font-bold text-[12.5px] shadow-premium hover:scale-105 active:scale-95 transition-all cursor-pointer pointer-events-auto border border-white/10"
+            title="Create Content"
+          >
+            <Plus className="w-4.5 h-4.5" />
+            <span>Create</span>
+          </button>
+        </>
       )}
       
       <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />

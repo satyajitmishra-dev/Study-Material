@@ -1,4 +1,5 @@
 import React from 'react';
+import { auth } from '@/auth';
 import { cmsDb } from '@/lib/database/cmsDb';
 import DashboardClient from '@/components/admin/DashboardClient';
 import { getActiveProject } from '@/lib/actions/projectContext';
@@ -6,19 +7,32 @@ import { getActiveProject } from '@/lib/actions/projectContext';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
+  const session = await auth();
+  if (!session?.user) {
+    return null;
+  }
+
+  const userId = session.user.id!;
+  const role = (session.user as any).role || 'user';
+  const isCmsAdmin = role === 'admin';
+
   const { projectId } = await getActiveProject();
 
   // Query initial CMS metrics on the server scoped to project container
-  const { items: projects, total: totalProjects } = await cmsDb.getProjects({ limit: 1000, projectId });
+  const { items: allProjects, total: totalProjects } = await cmsDb.getProjects({ limit: 1000, projectId });
   const { total: mediaCount } = await cmsDb.getMedia({ limit: 1, projectId });
-  const auditLogs = await cmsDb.getAuditLogs(undefined, 25, projectId);
+  const allAuditLogs = await cmsDb.getAuditLogs(undefined, 100, projectId);
+
+  // Programmatic scoping based on user capability
+  const projects = isCmsAdmin ? allProjects : allProjects.filter(p => p.authorId === userId);
+  const auditLogs = isCmsAdmin ? allAuditLogs : allAuditLogs.filter(l => l.userId === userId);
 
   const publishedCount = projects.filter(p => p.status === 'published').length;
   const draftsCount = projects.filter(p => p.status === 'draft').length;
   const totalViews = projects.reduce((sum, p) => sum + p.views, 0);
 
   const initialData = {
-    totalProjects,
+    totalProjects: projects.length,
     publishedCount,
     draftsCount,
     totalViews,
@@ -28,9 +42,10 @@ export default async function AdminDashboardPage() {
       title: p.title,
       category: p.category,
       status: p.status,
+      views: p.views,
       updatedAt: p.updatedAt.toISOString(),
     })),
-    auditLogs: auditLogs.map(l => ({
+    auditLogs: auditLogs.slice(0, 10).map(l => ({
       id: l.id,
       action: l.action,
       targetType: l.targetType,
@@ -39,5 +54,11 @@ export default async function AdminDashboardPage() {
     })),
   };
 
-  return <DashboardClient initialData={initialData} />;
+  return (
+    <DashboardClient 
+      initialData={initialData} 
+      role={role} 
+      userName={session.user.name || 'Developer'} 
+    />
+  );
 }

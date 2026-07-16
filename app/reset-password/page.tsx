@@ -21,7 +21,7 @@ function ResetPasswordContent() {
   const [success, setSuccess] = useState(false);
 
   const requirements = [
-    { label: 'Minimum 8 characters', test: (pw: string) => pw.length >= 8 },
+    { label: 'Minimum 12 characters', test: (pw: string) => pw.length >= 12 },
     { label: 'One uppercase letter (A-Z)', test: (pw: string) => /[A-Z]/.test(pw) },
     { label: 'One lowercase letter (a-z)', test: (pw: string) => /[a-z]/.test(pw) },
     { label: 'One number (0-9)', test: (pw: string) => /[0-9]/.test(pw) },
@@ -31,16 +31,15 @@ function ResetPasswordContent() {
   const getStrength = () => {
     if (!password) return { score: 0, label: 'None', color: 'bg-stone/20', text: 'text-stone' };
     let score = 0;
-    if (password.length >= 8) score++;
+    if (password.length >= 12) score += 2;
     if (/[A-Z]/.test(password)) score++;
     if (/[a-z]/.test(password)) score++;
     if (/[0-9]/.test(password)) score++;
     if (/[^A-Za-z0-9]/.test(password)) score++;
-    if (password.length >= 12) score++;
 
-    if (score <= 2) return { score, label: 'Weak', color: 'bg-accent-pink', text: 'text-accent-pink' };
-    if (score <= 4) return { score, label: 'Fair', color: 'bg-accent-amber', text: 'text-accent-amber' };
-    if (score === 5) return { score, label: 'Good', color: 'bg-accent-cyan', text: 'text-accent-cyan' };
+    if (score <= 3) return { score, label: 'Weak', color: 'bg-accent-pink', text: 'text-accent-pink' };
+    if (score <= 5) return { score, label: 'Fair', color: 'bg-accent-amber', text: 'text-accent-amber' };
+    if (score === 6) return { score, label: 'Good', color: 'bg-accent-cyan', text: 'text-accent-cyan' };
     return { score, label: 'Strong', color: 'bg-accent-emerald', text: 'text-accent-emerald' };
   };
 
@@ -66,6 +65,7 @@ function ResetPasswordContent() {
           INVALID_OR_EXPIRED_TOKEN: 'This reset link is invalid or has expired. Please request a new one.',
           VALIDATION_FAILED: 'Password does not meet security requirements.',
           USER_NOT_FOUND: 'Account not found.',
+          PASSWORD_USED_RECENTLY: 'Password matches one of your last 5 passwords. Please pick a new one.',
         };
         setError(errorMap[result.error!] || 'Password reset failed. Please try again.');
       }

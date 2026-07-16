@@ -35,6 +35,15 @@ model User {
   usernameHistory       UsernameHistory[]
   draftBackups          DraftBackup[]
   projectContributors   ProjectContributor[]
+  reputation            Int                    @default(0)
+  xp                    Int                    @default(0)
+  level                 Int                    @default(1)
+  streak                Int                    @default(0)
+  badges                String[]               @default([])
+  shadowBanned          Boolean                @default(false)
+  banExpires            DateTime?
+  banReason             String?
+  strikesCount          Int                    @default(0)
 
   // --- PUBLIC PLATFORM RELATIONS ---
   authorProfile     AuthorProfile?
@@ -70,6 +79,7 @@ model User {
   // --- AUTH SECURITY RELATIONS ---
   userSessions         UserSession[]
   authAuditLogs        AuthAuditLog[]
+  passwordHistories    PasswordHistory[]
 }
 
 model Account {
@@ -129,6 +139,8 @@ model CmsProject {
   robots         String?
   schemaJson     String?        @db.Text
   seoScore       Int            @default(0)
+  qualityScore   Int            @default(0)
+  postHash       String?
   views          Int            @default(0)
   status         String         @default("draft") // draft | review | approved | scheduled | published | archived
   publishedAt    DateTime?
@@ -1429,4 +1441,44 @@ model RateLimit {
 
   @@unique([key])
 }
+
+model Community {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?  @db.Text
+  banner      String?
+  rules       String[] @default([])
+  mods        String[] @default([]) // Array of User IDs
+  members     String[] @default([]) // Array of User IDs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EmailJob {
+  id           String    @id @default(cuid())
+  to           String
+  subject      String
+  html         String    @db.Text
+  text         String    @db.Text
+  status       String    @default("pending") // pending | sending | completed | failed
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(3)
+  lastError    String?   @db.Text
+  createdAt    DateTime  @default(now())
+  processedAt  DateTime?
+
+  @@index([status])
+}
+
+model PasswordHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  hash      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 

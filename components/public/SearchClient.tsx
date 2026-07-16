@@ -129,12 +129,16 @@ export default function SearchClient() {
       case 'roadmap': return Compass;
       case 'discussion': return MessageSquare;
       case 'event': return Calendar;
+      case 'user': return Users;
+      case 'community': return FolderDot;
       default: return Sparkles;
     }
   };
 
   const formatTypeName = (type: string) => {
     if (type === 'qa') return 'Q&As';
+    if (type === 'user') return 'Creators';
+    if (type === 'community') return 'Communities';
     return type.charAt(0).toUpperCase() + type.slice(1) + 's';
   };
 
@@ -242,7 +246,8 @@ export default function SearchClient() {
           { id: 'roadmap', label: 'Roadmaps' },
           { id: 'note', label: 'Notes' },
           { id: 'discussion', label: 'Discussions' },
-          { id: 'event', label: 'Events' }
+          { id: 'user', label: 'Creators' },
+          { id: 'community', label: 'Communities' }
         ].map(t => (
           <button
             key={t.id}

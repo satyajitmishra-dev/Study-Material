@@ -81,6 +81,7 @@ export default function PostDetailClient({
   const [copiedLink, setCopiedLink] = useState(false);
   const [reported, setReported] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
 
   useEffect(() => {
     let vid = localStorage.getItem('sm_visitor_id');
@@ -400,11 +401,19 @@ export default function PostDetailClient({
       </div>
 
       {/* Main post grid (TOC sidebar + Body) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start max-w-5xl mx-auto">
+      <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 items-start max-w-5xl mx-auto transition-all ${focusMode ? 'lg:grid-cols-1' : ''}`}>
         
         {/* Left: Table of Contents */}
-        <div className="lg:col-span-3 lg:sticky lg:top-16 space-y-4">
-          <h4 className="text-[11px] font-semibold text-stone uppercase tracking-wider font-mono">Table of Contents</h4>
+        <div className={`lg:col-span-3 lg:sticky lg:top-16 space-y-5 ${focusMode ? 'hidden' : ''}`}>
+          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+            <h4 className="text-[11px] font-semibold text-stone uppercase tracking-wider font-mono">Table of Contents</h4>
+            <button
+              onClick={() => setFocusMode(true)}
+              className="text-[10px] text-accent-cyan hover:underline font-mono"
+            >
+              Focus Mode
+            </button>
+          </div>
           <ul className="space-y-3 text-[12px] text-stone">
             {post.toc && post.toc.length > 0 ? (
               post.toc.map((item: any, idx: number) => (
@@ -434,6 +443,15 @@ export default function PostDetailClient({
               </>
             )}
           </ul>
+          {/* Focus Mode helper button */}
+          <div className="pt-2">
+            <button
+              onClick={() => setFocusMode(!focusMode)}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10.5px] font-bold border border-white/5 hover:border-white/10 bg-white/5 text-stone hover:text-warm-white transition-colors cursor-pointer"
+            >
+              Focus Mode
+            </button>
+          </div>
 
           {/* Post Series link if any */}
           {series && (
@@ -448,7 +466,15 @@ export default function PostDetailClient({
         </div>
 
         {/* Right: Body Content */}
-        <div className="lg:col-span-9 space-y-12">
+        <div className={`space-y-12 ${focusMode ? 'lg:col-span-12 max-w-2xl mx-auto' : 'lg:col-span-9'}`}>
+          {focusMode && (
+            <button
+              onClick={() => setFocusMode(false)}
+              className="px-3 py-1.5 rounded-lg text-[10.5px] font-bold bg-white/5 border border-white/5 hover:bg-white/10 text-accent-cyan cursor-pointer transition-colors block mb-4"
+            >
+              ← Exit Focus Mode
+            </button>
+          )}
           {/* Post Rich Content */}
           <article className="prose prose-invert max-w-none text-[15px] text-fog/90 leading-relaxed font-light space-y-6 select-text">
             {post.content ? (

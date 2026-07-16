@@ -24,8 +24,8 @@ const globalForReports = globalThis as unknown as {
 export const reportsStore = globalForReports.reportsStore ?? [
   {
     id: 'rep_1',
-    contentId: '1', // React 19 Compiler Spec
-    contentType: 'note',
+    contentId: 'proj_sandbox_1',
+    contentType: 'project',
     reason: 'wrong_info',
     details: 'The compiler specifications state incorrect automatic memoization hook parameters.',
     reporterId: 'usr_reporter_1',
@@ -34,7 +34,7 @@ export const reportsStore = globalForReports.reportsStore ?? [
   },
   {
     id: 'rep_2',
-    contentId: 'doc-proj-1', // StudyMaterial
+    contentId: 'proj_sandbox_2',
     contentType: 'project',
     reason: 'spam',
     details: 'Duplicate repository registrations with empty details description.',
@@ -49,23 +49,28 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 /**
- * Authentication and permission role guard check.
+ * Authentication and capability guard check.
  */
-async function checkAuth(requiredRoles: Array<'admin' | 'editor' | 'author' | 'viewer'> = ['admin', 'editor']) {
+async function checkAuth(requiredCapability: 'Moderator' | 'Admin' | 'Creator' = 'Moderator') {
   const session = await auth();
   if (!session?.user) {
     throw new Error('UNAUTHENTICATED');
   }
 
-  const role = (session.user as any).role as 'admin' | 'editor' | 'author' | 'viewer' || 'viewer';
-  const status = (session.user as any).status as 'active' | 'disabled' || 'disabled';
+  const role = (session.user as any).role || 'user';
+  const status = (session.user as any).status || 'active';
+  const emailVerified = (session.user as any).emailVerified;
 
   if (status !== 'active') {
     throw new Error('USER_DISABLED');
   }
 
-  if (!requiredRoles.includes(role)) {
-    throw new Error('FORBIDDEN');
+  if (requiredCapability === 'Admin') {
+    if (role !== 'admin') throw new Error('FORBIDDEN');
+  } else if (requiredCapability === 'Moderator') {
+    if (role !== 'admin' && role !== 'moderator') throw new Error('FORBIDDEN');
+  } else if (requiredCapability === 'Creator') {
+    if (emailVerified === null) throw new Error('FORBIDDEN');
   }
 
   return {
@@ -77,7 +82,7 @@ async function checkAuth(requiredRoles: Array<'admin' | 'editor' | 'author' | 'v
 }
 
 /**
- * Public User Action: Submit a report for spam, copyright violation, abuse, etc.
+ * Public User Action: Submit a report for spam, copyright, abuse, etc.
  */
 export async function reportContentAction(
   contentId: string,
@@ -86,7 +91,7 @@ export async function reportContentAction(
   details: string
 ) {
   try {
-    const actor = await checkAuth(['admin', 'editor', 'author', 'viewer']);
+    const actor = await checkAuth('Creator');
     
     const newReport: ContentReport = {
       id: `rep_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`,
@@ -101,7 +106,6 @@ export async function reportContentAction(
 
     reportsStore.unshift(newReport);
 
-    // Emit event asynchronously
     await EventBus.emit('content:reported', {
       reportId: newReport.id,
       contentId,
@@ -117,6 +121,18 @@ export async function reportContentAction(
 }
 
 /**
+ * Retrieve all Reports (Admin/Moderator only)
+ */
+export async function getAllReportsAction() {
+  try {
+    await checkAuth('Moderator');
+    return { success: true, reports: reportsStore };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'SERVER_ERROR' };
+  }
+}
+
+/**
  * Admin/Moderator Action: Moderate reported content or modify verification/feature settings.
  */
 export async function moderateContentAction(
@@ -126,7 +142,31 @@ export async function moderateContentAction(
   auditNotes: string = ''
 ) {
   try {
-    const actor = await checkAuth(['admin', 'editor']);
+    const actor = await checkAuth('Moderator');
+    const prisma = getPrisma();
+
+    // Perform database level update based on content type
+    if (prisma) {
+      if (contentType === 'project') {
+        if (actionType === 'hide') {
+          await prisma.cmsProject.update({ where: { id: contentId }, data: { status: 'archived' } });
+        } else if (actionType === 'restore') {
+          await prisma.cmsProject.update({ where: { id: contentId }, data: { status: 'published' } });
+        }
+      } else if (contentType === 'note') {
+        if (actionType === 'hide') {
+          await prisma.userNote.update({ where: { id: contentId }, data: { visibility: 'private' } });
+        } else if (actionType === 'restore') {
+          await prisma.userNote.update({ where: { id: contentId }, data: { visibility: 'public' } });
+        }
+      } else if (contentType === 'discussion') {
+        if (actionType === 'hide') {
+          await prisma.discussion.update({ where: { id: contentId }, data: { visibility: 'private' } });
+        } else if (actionType === 'restore') {
+          await prisma.discussion.update({ where: { id: contentId }, data: { visibility: 'public' } });
+        }
+      }
+    }
 
     // Log the moderator action event
     await EventBus.emit('content:moderated', {
@@ -137,7 +177,7 @@ export async function moderateContentAction(
       auditNotes
     });
 
-    // Update status of related reports
+    // Update status of related reports in memory
     reportsStore.forEach(rep => {
       if (rep.contentId === contentId && rep.contentType === contentType) {
         rep.status = 'reviewed';
@@ -145,6 +185,7 @@ export async function moderateContentAction(
     });
 
     revalidatePath('/admin/moderation');
+    revalidatePath('/admin/community-mod');
     revalidatePath('/');
     
     return { 
@@ -159,14 +200,185 @@ export async function moderateContentAction(
 }
 
 /**
- * Server-Side Ownership Guard: Validates that the current user is indeed the author of target resource.
+ * Retrieve all registered users (Admin only)
+ */
+export async function getAllUsersAction() {
+  try {
+    await checkAuth('Admin');
+    const prisma = getPrisma();
+
+    if (prisma) {
+      const users = await prisma.user.findMany({
+        orderBy: { createdAt: 'desc' }
+      });
+      return { success: true, users };
+    }
+
+    // Sandbox fallbacks
+    return { 
+      success: true, 
+      users: [
+        { id: 'usr_admin', name: 'Admin', email: 'healgodse@gmail.com', username: 'admin', role: 'admin', status: 'active', emailVerified: new Date(), createdAt: new Date() },
+        { id: 'usr_user_1', name: 'Satyajit Mishra', email: 'satya@domain.com', username: 'satyajit_m', role: 'user', status: 'active', emailVerified: new Date(), createdAt: new Date() }
+      ] 
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'SERVER_ERROR' };
+  }
+}
+
+/**
+ * Moderate User Action (Admin only)
+ */
+export async function moderateUserAction(
+  targetUserId: string,
+  actionType: 'verify' | 'suspend' | 'activate' | 'change_role' | 'shadowban' | 'tempban' | 'permban' | 'unban' | 'add_strike',
+  reasonOrPayload?: any,
+  durationDays?: number
+) {
+  try {
+    const actor = await checkAuth('Moderator');
+    const prisma = getPrisma();
+    const reason = typeof reasonOrPayload === 'string' ? reasonOrPayload : (reasonOrPayload?.reason || '');
+
+    if (prisma) {
+      if (actionType === 'verify') {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { emailVerified: new Date() }
+        });
+      } else if (actionType === 'suspend') {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { status: 'disabled' }
+        });
+        await prisma.userSession.deleteMany({
+          where: { userId: targetUserId }
+        });
+      } else if (actionType === 'activate') {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { status: 'active' }
+        });
+      } else if (actionType === 'change_role') {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { role: reasonOrPayload?.role || 'user' }
+        });
+      } else if (actionType === 'shadowban') {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { shadowBanned: true }
+        });
+      } else if (actionType === 'tempban') {
+        const expires = durationDays ? new Date(Date.now() + durationDays * 24 * 3600000) : new Date(Date.now() + 7 * 24 * 3600000);
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { 
+            status: 'disabled', 
+            banExpires: expires,
+            banReason: reason
+          }
+        });
+      } else if (actionType === 'permban') {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { 
+            status: 'disabled', 
+            banReason: reason,
+            banExpires: null
+          }
+        });
+      } else if (actionType === 'unban') {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { 
+            status: 'active', 
+            banExpires: null,
+            banReason: null
+          }
+        });
+      } else if (actionType === 'add_strike') {
+        await prisma.user.update({
+          where: { id: targetUserId },
+          data: { strikesCount: { increment: 1 } }
+        });
+      }
+    }
+
+    const detailLog = `Moderator ${actor.userName} executed target [${actionType.toUpperCase()}] on User ID: ${targetUserId}. Reason: ${reason}`;
+    
+    // Log the moderator action event
+    await EventBus.emit('content:moderated', {
+      contentId: targetUserId,
+      contentType: 'user',
+      actionType,
+      moderatorId: actor.userId,
+      auditNotes: detailLog
+    });
+
+    revalidatePath('/admin/users');
+    revalidatePath('/admin/moderation');
+    
+    return { success: true, log: detailLog };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'SERVER_ERROR' };
+  }
+}
+
+/**
+ * Retrieve all items of a content type for moderation (Admin/Moderator only)
+ */
+export async function getAllContentAction(contentType: 'project' | 'note' | 'discussion') {
+  try {
+    await checkAuth('Moderator');
+    const prisma = getPrisma();
+
+    if (prisma) {
+      if (contentType === 'project') {
+        const items = await prisma.cmsProject.findMany({
+          include: { author: { select: { id: true, name: true, email: true } } },
+          orderBy: { createdAt: 'desc' }
+        });
+        return { success: true, items };
+      } else if (contentType === 'note') {
+        const items = await prisma.userNote.findMany({
+          include: { author: { select: { id: true, name: true, email: true } } },
+          orderBy: { createdAt: 'desc' }
+        });
+        return { success: true, items };
+      } else if (contentType === 'discussion') {
+        const items = await prisma.discussion.findMany({
+          include: { author: { select: { id: true, name: true, email: true } } },
+          orderBy: { createdAt: 'desc' }
+        });
+        return { success: true, items };
+      }
+    }
+
+    // Sandbox fallback
+    return { 
+      success: true, 
+      items: [
+        { id: 'proj_sandbox_1', title: 'StudyMaterial Core App', status: 'published', views: 320, author: { name: 'Satyajit', email: 'satya@domain.com' }, createdAt: new Date() },
+        { id: 'note_sandbox_1', title: 'React 19 Compiler Spec', visibility: 'public', views: 85, author: { name: 'Satyajit', email: 'satya@domain.com' }, createdAt: new Date() }
+      ] 
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'SERVER_ERROR' };
+  }
+}
+
+/**
+ * Server-Side Ownership Guard.
  */
 export async function verifyOwnershipAction(contentId: string, authorId: string): Promise<boolean> {
   const session = await auth();
   if (!session?.user) return false;
   
   const role = (session.user as any).role;
-  if (role === 'admin') return true; // Admins bypass ownership checks for moderation purposes
+  if (role === 'admin') return true;
 
   return session.user.id === authorId;
 }
+

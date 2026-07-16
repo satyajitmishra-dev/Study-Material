@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processQueue, processScheduledPublishing } from '@/lib/automation/eventQueue';
+import { processEmailQueue } from '@/lib/auth/emailQueue';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,9 @@ export async function GET(req: NextRequest) {
     // 2. Process Scheduled Publications
     const publishingResults = await processScheduledPublishing();
 
+    // 3. Process Email Queue
+    const emailResults = await processEmailQueue();
+
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
@@ -30,6 +34,10 @@ export async function GET(req: NextRequest) {
       publishing: {
         publishedCount: publishingResults.publishedCount,
         logs: publishingResults.logs,
+      },
+      emails: {
+        processedCount: emailResults.processedCount,
+        logs: emailResults.logs
       }
     });
   } catch (err: any) {

@@ -25,12 +25,12 @@ interface CreateMenuDialogProps {
 
 export default function CreateMenuDialog({ isOpen, onClose }: CreateMenuDialogProps) {
   const createItems = [
-    { title: 'Write Blog', desc: 'Draft tech articles & release notes', icon: FileText, color: 'text-accent-pink bg-accent-pink/10 border-accent-pink/20', href: '/admin/projects/create' },
-    { title: 'Create Project', desc: 'Register repository & live demo links', icon: FolderGit2, color: 'text-accent-violet bg-accent-violet/10 border-accent-violet/20', href: '/admin/projects/create' },
-    { title: 'Upload Notes', desc: 'Add lecture slides, sheets, cheat files', icon: BookMarked, color: 'text-accent-cyan bg-accent-cyan/10 border-accent-cyan/20', href: '/workspace' },
-    { title: 'Create Roadmap', desc: 'Publish interactive curriculum nodes', icon: Compass, color: 'text-accent-orange bg-accent-orange/10 border-accent-orange/20', href: '/learn' },
-    { title: 'Upload Achievement', desc: 'Add certificates, AWS/LeetCode proof', icon: Award, color: 'text-accent-amber bg-accent-amber/10 border-accent-amber/20', href: '/profile' },
-    { title: 'Share Resource', desc: 'Bookmark technical references & videos', icon: Share2, color: 'text-accent-emerald bg-accent-emerald/10 border-accent-emerald/20', href: '/workspace' },
+    { title: 'Write Article', desc: 'Draft tech articles & tutorials', icon: FileText, color: 'text-accent-pink bg-accent-pink/10 border-accent-pink/20', href: '/studio/projects/create?type=article' },
+    { title: 'Showcase Project', desc: 'Register repository & live demo links', icon: FolderGit2, color: 'text-accent-violet bg-accent-violet/10 border-accent-violet/20', href: '/studio/projects/create?type=project' },
+    { title: 'Upload Notes', desc: 'Add lecture slides, sheets, cheat files', icon: BookMarked, color: 'text-accent-cyan bg-accent-cyan/10 border-accent-cyan/20', href: '/notes/upload' },
+    { title: 'Create Roadmap', desc: 'Publish interactive curriculum nodes', icon: Compass, color: 'text-accent-orange bg-accent-orange/10 border-accent-orange/20', href: '/studio/projects/create?type=roadmap' },
+    { title: 'Create Announcement', desc: 'Share platform or project updates', icon: Award, color: 'text-accent-amber bg-accent-amber/10 border-accent-amber/20', href: '/studio/projects/create?type=announcement' },
+    { title: 'Share Resource', desc: 'Bookmark technical references & links', icon: Share2, color: 'text-accent-emerald bg-accent-emerald/10 border-accent-emerald/20', href: '/community' },
     { title: 'Create Event', desc: 'Schedule AMA or coding study group', icon: Calendar, color: 'text-accent-cyan bg-accent-cyan/10 border-accent-cyan/20', href: '/community' },
     { title: 'Ask Question', desc: 'Query community on developer road blocks', icon: HelpCircle, color: 'text-accent-pink bg-accent-pink/10 border-accent-pink/20', href: '/community' },
     { title: 'Create Discussion', desc: 'Start topic on architectural designs', icon: MessageSquare, color: 'text-accent-violet bg-accent-violet/10 border-accent-violet/20', href: '/community' },

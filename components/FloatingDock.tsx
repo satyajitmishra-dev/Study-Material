@@ -101,14 +101,15 @@ export default function FloatingDock({ onSearchClick, onCreateClick }: FloatingD
   ];
 
   return (
-    <div className="fixed bottom-6 left-0 right-0 flex justify-center z-40 pointer-events-none">
+    <div className="fixed bottom-6 left-4 right-4 md:left-0 md:right-0 flex justify-center z-40 pointer-events-none">
+      {/* Desktop Floating Dock */}
       <motion.div
         onMouseMove={(e) => mouseX.set(e.clientX)}
         onMouseLeave={() => mouseX.set(Infinity)}
         initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 20, stiffness: 120 }}
-        className="flex items-end gap-3 px-4 py-3 rounded-2xl bg-onyx/75 border border-white/10 backdrop-blur-md shadow-premium pointer-events-auto"
+        className="hidden md:flex items-end gap-3 px-4 py-3 rounded-2xl bg-onyx/75 border border-white/10 backdrop-blur-md shadow-premium pointer-events-auto"
       >
         {workspaces.map((item, idx) => (
           <div key={idx} className="flex items-end">
@@ -122,6 +123,35 @@ export default function FloatingDock({ onSearchClick, onCreateClick }: FloatingD
             {idx === 2 && <div className="w-[1px] h-8 bg-white/10 mx-1 self-center rounded" />}
           </div>
         ))}
+      </motion.div>
+
+      {/* Mobile Bottom Navigation Bar (Safe Area Compliant) */}
+      <motion.div
+        initial={{ y: 80, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 20, stiffness: 120 }}
+        className="flex md:hidden items-center justify-around w-full max-w-md px-2 py-3 rounded-2xl bg-onyx/90 border border-white/10 backdrop-blur-md shadow-premium pointer-events-auto pb-[calc(12px+env(safe-area-inset-bottom,0px))]"
+      >
+        {workspaces.map((item, idx) => {
+          const Icon = item.icon;
+          const isButton = !!item.onClick;
+          const Content = (
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-charcoal/20 border border-white/5 text-stone active:bg-charcoal/50 active:text-warm-white transition-all cursor-pointer">
+              <Icon className="w-5 h-5" />
+            </div>
+          );
+
+          return (
+            <div key={idx} className="flex items-center">
+              {isButton ? (
+                <div onClick={item.onClick}>{Content}</div>
+              ) : (
+                <Link href={item.href}>{Content}</Link>
+              )}
+              {idx === 2 && <div className="w-[1px] h-6 bg-white/10 mx-1.5 self-center rounded" />}
+            </div>
+          );
+        })}
       </motion.div>
     </div>
   );

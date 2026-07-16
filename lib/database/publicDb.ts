@@ -2051,116 +2051,156 @@ class PublicDatabase {
     sortBy?: 'latest' | 'trending' | 'most_viewed' | 'most_saved';
     limit?: number;
     offset?: number;
+    userId?: string; // Optional user context for following/for_you
   }): Promise<{ items: any[]; total: number }> {
     const limit = filters?.limit || 15;
     const offset = filters?.offset || 0;
     const typeFilter = filters?.type || 'all';
 
-    // 1. Fetch from database or in-memory lists
     const prisma = this.prisma;
     let rawItems: any[] = [];
 
     if (prisma) {
-      // Postgres fetching
       const promises: Promise<any[]>[] = [];
 
       // Fetch Blogs (CmsProject with type 'article' / published)
-      if (typeFilter === 'all' || typeFilter === 'blog') {
+      if (typeFilter === 'all' || typeFilter === 'blog' || typeFilter === 'articles' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you' || typeFilter === 'following' || typeFilter === 'open_source') {
         promises.push(
           prisma.cmsProject.findMany({
             where: { status: 'published', type: 'article' },
             include: { author: true, comments: true, reactions: true },
             take: 100
-          }).then(res => res.map(x => ({ ...x, feedType: 'blog', authorName: x.author.name, authorImage: x.author.image, likes: x.reactions.length, commentCount: x.comments.length })))
+          }).then(res => res.map(x => ({ 
+            ...x, 
+            feedType: 'blog', 
+            authorName: x.author.name, 
+            authorImage: x.author.image, 
+            likes: x.reactions.length, 
+            commentCount: x.comments.length,
+            githubUrl: null
+          })))
         );
       }
 
       // Fetch Projects (Project model with visibility 'public')
-      if (typeFilter === 'all' || typeFilter === 'project') {
+      if (typeFilter === 'all' || typeFilter === 'project' || typeFilter === 'projects' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you' || typeFilter === 'following' || typeFilter === 'open_source') {
         promises.push(
           prisma.project.findMany({
             where: { visibility: 'public' },
             include: { contributors: true, comments: true },
             take: 100
-          }).then(res => res.map(x => ({ ...x, feedType: 'project', title: x.name, likes: 25, views: 120, commentCount: x.comments.length })))
+          }).then(res => res.map(x => ({ 
+            ...x, 
+            feedType: 'project', 
+            title: x.name, 
+            likes: 25, 
+            views: 120, 
+            commentCount: x.comments.length,
+            createdAt: x.createdAt,
+            githubUrl: x.githubUrl || null
+          })))
         );
       }
 
       // Fetch Notes (UserNote with visibility 'public')
-      if (typeFilter === 'all' || typeFilter === 'note') {
+      if (typeFilter === 'all' || typeFilter === 'note' || typeFilter === 'study_notes' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
         promises.push(
           prisma.userNote.findMany({
             where: { visibility: 'public' },
             include: { author: true },
             take: 100
-          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'note', authorName: x.author?.name, authorImage: x.author?.image })))
+          }).then((res: any[]) => res.map((x: any) => ({ 
+            ...x, 
+            feedType: 'note', 
+            authorName: x.author?.name, 
+            authorImage: x.author?.image,
+            createdAt: x.createdAt
+          })))
+        );
+      }
+
+      // Fetch Curated Roadmaps (isPublished = true)
+      if (typeFilter === 'all' || typeFilter === 'roadmap' || typeFilter === 'roadmaps' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
+        promises.push(
+          prisma.curatedRoadmap.findMany({
+            where: { isPublished: true },
+            take: 100
+          }).then((res: any[]) => res.map((x: any) => ({ 
+            ...x, 
+            feedType: 'roadmap', 
+            authorName: 'System Mentor', 
+            likes: 120,
+            createdAt: x.createdAt
+          })))
         );
       }
 
       // Fetch Discussions (isQuestion = false, visibility 'public')
-      if (typeFilter === 'all' || typeFilter === 'discussion') {
+      if (typeFilter === 'all' || typeFilter === 'discussion' || typeFilter === 'discussions' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
         promises.push(
           prisma.discussion.findMany({
             where: { visibility: 'public', isQuestion: false },
             include: { author: true, answers: true },
             take: 100
-          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'discussion', authorName: x.author?.name, authorImage: x.author?.image, replies: x.answers?.length || 0, likes: x.upvotes })))
+          }).then((res: any[]) => res.map((x: any) => ({ 
+            ...x, 
+            feedType: 'discussion', 
+            authorName: x.author?.name, 
+            authorImage: x.author?.image, 
+            replies: x.answers?.length || 0, 
+            likes: x.upvotes,
+            createdAt: x.createdAt
+          })))
         );
       }
 
       // Fetch Questions (isQuestion = true, visibility 'public')
-      if (typeFilter === 'all' || typeFilter === 'question') {
+      if (typeFilter === 'all' || typeFilter === 'question' || typeFilter === 'discussions' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
         promises.push(
           prisma.discussion.findMany({
             where: { visibility: 'public', isQuestion: true },
             include: { author: true, answers: true },
             take: 100
-          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'question', authorName: x.author?.name, authorImage: x.author?.image, replies: x.answers?.length || 0, likes: x.upvotes })))
+          }).then((res: any[]) => res.map((x: any) => ({ 
+            ...x, 
+            feedType: 'question', 
+            authorName: x.author?.name, 
+            authorImage: x.author?.image, 
+            replies: x.answers?.length || 0, 
+            likes: x.upvotes,
+            createdAt: x.createdAt
+          })))
         );
       }
 
       // Fetch Polls (visibility 'public')
-      if (typeFilter === 'all' || typeFilter === 'poll') {
+      if (typeFilter === 'all' || typeFilter === 'poll' || typeFilter === 'discussions' || typeFilter === 'latest' || typeFilter === 'trending') {
         promises.push(
           prisma.poll.findMany({
             where: { visibility: 'public' },
             include: { options: true, author: true },
             take: 100
-          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'poll', authorName: x.author?.name, authorImage: x.author?.image })))
-        );
-      }
-
-      // Fetch Events
-      if (typeFilter === 'all' || typeFilter === 'event') {
-        promises.push(
-          prisma.platformEvent.findMany({
-            include: { organizer: true },
-            take: 100
-          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'event', organizerName: x.organizer?.name, organizerImage: x.organizer?.image })))
-        );
-      }
-
-      // Fetch Resources
-      if (typeFilter === 'all' || typeFilter === 'resource') {
-        promises.push(
-          prisma.platformResource.findMany({
-            include: { author: true },
-            take: 100
-          }).then((res: any[]) => res.map((x: any) => ({ ...x, feedType: 'resource', authorName: x.author?.name, authorImage: x.author?.image })))
+          }).then((res: any[]) => res.map((x: any) => ({ 
+            ...x, 
+            feedType: 'poll', 
+            authorName: x.author?.name, 
+            authorImage: x.author?.image,
+            createdAt: x.createdAt
+          })))
         );
       }
 
       const results = await Promise.all(promises);
       rawItems = results.flat();
     } else {
-      // In-Memory fetching
-      if (typeFilter === 'all' || typeFilter === 'blog') {
+      // In-Memory Fallbacks
+      if (typeFilter === 'all' || typeFilter === 'blog' || typeFilter === 'articles' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you' || typeFilter === 'following' || typeFilter === 'open_source') {
         rawItems.push(...[
           { id: 'b_1', title: 'Building Authentication with Next.js 16', slug: 'nextjs-auth', feedType: 'blog', description: 'Deep-dive compiler memoization & security layouts.', authorName: 'Satyajit Mishra', readingTime: '8 min', likes: 140, commentCount: 12, createdAt: new Date(Date.now() - 3600000 * 2) }
         ]);
       }
-      if (typeFilter === 'all' || typeFilter === 'project') {
-        rawItems.push(...inMemoryProjects.map(p => ({ ...p, feedType: 'project', title: p.name, likes: 45, views: 180 })));
+      if (typeFilter === 'all' || typeFilter === 'project' || typeFilter === 'projects' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you' || typeFilter === 'following' || typeFilter === 'open_source') {
+        rawItems.push(...inMemoryProjects.map(p => ({ ...p, feedType: 'project', title: p.name, likes: 45, views: 180, githubUrl: p.githubUrl || null })));
         rawItems.push({
           id: 'proj_resume_builder',
           title: 'AI Resume Builder',
@@ -2175,27 +2215,41 @@ class PublicDatabase {
           createdAt: new Date(Date.now() - 3600000 * 10)
         });
       }
-      if (typeFilter === 'all' || typeFilter === 'note') {
+      if (typeFilter === 'all' || typeFilter === 'note' || typeFilter === 'study_notes' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
         rawItems.push(...inMemoryUserNotes.map(n => ({ ...n, feedType: 'note' })));
       }
-      if (typeFilter === 'all' || typeFilter === 'discussion') {
-        rawItems.push(...inMemoryDiscussions.filter(d => !d.isQuestion).map(d => ({ ...d, feedType: 'discussion', replies: 23, likes: d.upvotes })));
+      if (typeFilter === 'all' || typeFilter === 'roadmap' || typeFilter === 'roadmaps' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
+        rawItems.push(...inMemoryCuratedRoadmaps.map(r => ({ ...r, feedType: 'roadmap', authorName: 'System Mentor', likes: 120 })));
       }
-      if (typeFilter === 'all' || typeFilter === 'question') {
-        rawItems.push(...inMemoryDiscussions.filter(d => d.isQuestion).map(d => ({ ...d, feedType: 'question', replies: 5, likes: d.upvotes })));
+      if (typeFilter === 'all' || typeFilter === 'discussion' || typeFilter === 'discussions' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
+        rawItems.push(...inMemoryDiscussions.filter(d => !d.isQuestion).map(d => ({ ...d, feedType: 'discussion', replies: 23, likes: d.upvotes, createdAt: d.createdAt })));
       }
-      if (typeFilter === 'all' || typeFilter === 'poll') {
-        rawItems.push(...inMemoryPolls.map(p => ({ ...p, feedType: 'poll' })));
+      if (typeFilter === 'all' || typeFilter === 'question' || typeFilter === 'discussions' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
+        rawItems.push(...inMemoryDiscussions.filter(d => d.isQuestion).map(d => ({ ...d, feedType: 'question', replies: 5, likes: d.upvotes, createdAt: d.createdAt })));
       }
-      if (typeFilter === 'all' || typeFilter === 'event') {
-        rawItems.push(...inMemoryEvents.map(e => ({ ...e, feedType: 'event' })));
-      }
-      if (typeFilter === 'all' || typeFilter === 'resource') {
-        rawItems.push(...inMemoryPlatformResources.map(r => ({ ...r, feedType: 'resource' })));
+      if (typeFilter === 'all' || typeFilter === 'poll' || typeFilter === 'discussions' || typeFilter === 'latest' || typeFilter === 'trending') {
+        rawItems.push(...inMemoryPolls.map(p => ({ ...p, feedType: 'poll', createdAt: p.createdAt })));
       }
     }
 
-    // 2. Filters
+    // 2. Tab Specific Filtering
+    if (typeFilter === 'following' && filters?.userId) {
+      const prisma = this.prisma;
+      if (prisma) {
+        const follows = await prisma.follow.findMany({ where: { userId: filters.userId, targetType: 'AUTHOR' } });
+        const followedIds = new Set(follows.map(f => f.targetId));
+        rawItems = rawItems.filter(item => item.authorId && followedIds.has(item.authorId));
+      } else {
+        const followedIds = new Set(inMemoryFollows.filter(f => f.userId === filters.userId && f.targetType === 'AUTHOR').map(f => f.targetId));
+        rawItems = rawItems.filter(item => item.authorId && followedIds.has(item.authorId));
+      }
+    }
+
+    if (typeFilter === 'open_source') {
+      rawItems = rawItems.filter(item => item.githubUrl || (item.tags || []).some((t: string) => t.toLowerCase() === 'open-source'));
+    }
+
+    // 3. Metadata Filters
     if (filters?.technology) {
       const tech = filters.technology.toLowerCase();
       rawItems = rawItems.filter(item => {
@@ -2209,9 +2263,9 @@ class PublicDatabase {
       rawItems = rawItems.filter(item => (item.difficulty || '').toLowerCase() === diff);
     }
 
-    // 3. Scoring algorithm for Trending & Sorting
+    // 4. Scoring algorithm for Trending & Sorting
     const calculateScore = (item: any) => {
-      const ageHours = (Date.now() - new Date(item.createdAt).getTime()) / 3600000;
+      const ageHours = (Date.now() - new Date(item.createdAt || Date.now()).getTime()) / 3600000;
       const views = item.views || 0;
       const likes = item.likes || item.upvotes || 0;
       const commentCount = item.commentCount || item.replies || 0;
@@ -2221,20 +2275,40 @@ class PublicDatabase {
       return engagement / (ageHours + 2);
     };
 
-    if (filters?.sortBy === 'trending') {
+    if (filters?.sortBy === 'trending' || typeFilter === 'trending') {
       rawItems.sort((a, b) => calculateScore(b) - calculateScore(a));
     } else if (filters?.sortBy === 'most_viewed') {
       rawItems.sort((a, b) => (b.views || 0) - (a.views || 0));
     } else if (filters?.sortBy === 'most_saved') {
       rawItems.sort((a, b) => (b.bookmarksCount || 0) - (a.bookmarksCount || 0));
     } else {
-      rawItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      // Default: Latest
+      rawItems.sort((a, b) => new Date(b.createdAt || Date.now()).getTime() - new Date(a.createdAt || Date.now()).getTime());
     }
 
     const total = rawItems.length;
     const items = rawItems.slice(offset, offset + limit);
 
     return { items, total };
+  }
+
+  // --- SUB-COMMUNITIES HELPER ---
+  async getCommunities(): Promise<any[]> {
+    const prisma = this.prisma;
+    if (prisma) {
+      const list = await prisma.community.findMany();
+      if (list.length > 0) return list;
+    }
+    
+    // Seed static list of sub-communities for ecosystem discovery
+    return [
+      { id: 'c_react', name: 'React', slug: 'react', description: 'Next.js, Server Components, State Management', banner: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=800&q=80', rules: ['Be respectful', 'No spam'], mods: ['sandbox-admin-id'], members: [] },
+      { id: 'c_java', name: 'Java', slug: 'java', description: 'Spring Boot, JDK, JVM internals', banner: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=800&q=80', rules: ['Strictly Java topics'], mods: ['sandbox-admin-id'], members: [] },
+      { id: 'c_nextjs', name: 'Next.js', slug: 'nextjs', description: 'Vercel, App Router, PPR routing', banner: 'https://images.unsplash.com/photo-1618401471353-b98aedd07871?auto=format&fit=crop&w=800&q=80', rules: ['No framework bashing'], mods: ['sandbox-admin-id'], members: [] },
+      { id: 'c_dsa', name: 'DSA', slug: 'dsa', description: 'Algorithms, LeetCode, Codeforces solutions', banner: 'https://images.unsplash.com/photo-1607799279861-4dd421887fb3?auto=format&fit=crop&w=800&q=80', rules: ['Explain your logic'], mods: ['sandbox-admin-id'], members: [] },
+      { id: 'c_ai', name: 'AI', slug: 'ai', description: 'LLMs, PyTorch, Prompt Engineering', banner: 'https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=800&q=80', rules: ['No fake AI claims'], mods: ['sandbox-admin-id'], members: [] },
+      { id: 'c_open_source', name: 'Open Source', slug: 'open-source', description: 'Git, GitHub repos, PR reviews', banner: 'https://images.unsplash.com/photo-1618401471353-b98aedd07871?auto=format&fit=crop&w=800&q=80', rules: ['Post your repo links'], mods: ['sandbox-admin-id'], members: [] }
+    ];
   }
 }
 

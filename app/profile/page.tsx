@@ -116,6 +116,7 @@ export default function ProfileDashboardPage() {
 
   // Delete account confirmation
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [sessions, setSessions] = useState<any[]>([]);
   
   // User Stats
   const [streak, setStreak] = useState(3);
@@ -298,6 +299,56 @@ export default function ProfileDashboardPage() {
       }
     ]);
   }, []);
+
+  const loadSessions = async () => {
+    try {
+      const { getActiveSessionsAction } = await import('@/lib/actions/authActions');
+      const res = await getActiveSessionsAction();
+      if (res.success) {
+        setSessions(res.sessions || []);
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (activeTab === 'security') {
+      loadSessions();
+    }
+  }, [activeTab]);
+
+  const handleRevokeSession = async (sessId: string) => {
+    const confirmRevoke = window.confirm("Are you sure you want to log out this device session?");
+    if (!confirmRevoke) return;
+
+    try {
+      const { revokeSessionAction } = await import('@/lib/actions/authActions');
+      const res = await revokeSessionAction(sessId);
+      if (res.success) {
+        loadSessions();
+      } else {
+        alert("Failed to terminate session.");
+      }
+    } catch (e) {
+      alert("Error revoking session.");
+    }
+  };
+
+  const handleRevokeAllOtherSessions = async () => {
+    const confirmRevoke = window.confirm("Are you sure you want to log out all OTHER devices?");
+    if (!confirmRevoke) return;
+
+    try {
+      const { revokeAllSessionsAction } = await import('@/lib/actions/authActions');
+      const res = await revokeAllSessionsAction();
+      if (res.success) {
+        loadSessions();
+      } else {
+        alert("Failed to terminate sessions.");
+      }
+    } catch (e) {
+      alert("Error revoking sessions.");
+    }
+  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1094,22 +1145,58 @@ export default function ProfileDashboardPage() {
           <div className="space-y-6 max-w-2xl animate-fadeIn">
             {/* Active Sessions */}
             <Card className="p-6 space-y-4">
-              <h3 className="text-[14px] font-bold text-warm-white uppercase tracking-wider flex items-center gap-2">
-                <Laptop className="w-4 h-4 text-accent-cyan" />
-                <span>Active Device Sessions</span>
-              </h3>
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <h3 className="text-[14px] font-bold text-warm-white uppercase tracking-wider flex items-center gap-2">
+                  <Laptop className="w-4 h-4 text-accent-cyan" />
+                  <span>Active Device Sessions</span>
+                </h3>
+                {sessions.length > 1 && (
+                  <button
+                    onClick={handleRevokeAllOtherSessions}
+                    className="px-2.5 py-1 bg-accent-pink/15 hover:bg-accent-pink/25 border border-accent-pink/25 text-accent-pink text-[10px] font-mono font-bold rounded-lg cursor-pointer transition-colors"
+                  >
+                    Revoke All Others
+                  </button>
+                )}
+              </div>
               
-              <div className="space-y-3.5">
-                <div className="p-3.5 rounded-xl bg-white/[0.01] border border-white/5 flex items-center justify-between">
-                  <div className="flex gap-3 items-center">
-                    <Laptop className="w-5 h-5 text-accent-cyan" />
-                    <div>
-                      <span className="text-[13px] font-bold text-warm-white block">Windows PC · Chrome Browser</span>
-                      <span className="text-[10px] text-stone font-mono">IP: 103.45.12.88 (New Delhi, India) · Current Session</span>
+              <div className="space-y-3.5 pt-2">
+                {sessions.map(s => {
+                  const isCurrent = s.sessionToken === (session as any)?.sessionToken;
+                  return (
+                    <div key={s.id} className="p-3.5 rounded-xl bg-white/[0.01] border border-white/5 flex items-center justify-between">
+                      <div className="flex gap-3 items-center">
+                        <Laptop className="w-5 h-5 text-accent-cyan" />
+                        <div>
+                          <span className="text-[13px] font-bold text-warm-white block">
+                            {s.os || 'OS'} · {s.browser || 'Browser'}
+                          </span>
+                          <span className="text-[10px] text-stone font-mono">
+                            IP: {s.ipAddress} ({s.location || 'Localhost'}) · Last Active: {new Date(s.lastActiveAt).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {isCurrent ? (
+                          <span className="px-2 py-0.5 rounded text-[9.5px] font-bold bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan uppercase tracking-wider font-mono">
+                            Current Session
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleRevokeSession(s.id)}
+                            className="px-2.5 py-1 bg-accent-pink/10 hover:bg-accent-pink/20 border border-accent-pink/20 text-accent-pink text-[10px] font-bold rounded cursor-pointer transition-colors"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[9.5px] font-bold bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan uppercase tracking-wider font-mono">Active</span>
-                </div>
+                  );
+                })}
+                {sessions.length === 0 && (
+                  <p className="text-[11.5px] text-stone/40 italic py-4 text-center">No active sessions loaded.</p>
+                )}
               </div>
             </Card>
 

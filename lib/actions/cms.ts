@@ -8,22 +8,31 @@ import { rateLimit } from '@/lib/security/rateLimit';
 import { revalidatePath } from 'next/cache';
 import { getActiveProject } from './projectContext';
 
-// Helper to check user session, active status, and role permissions
-async function checkAuth(requiredRoles: Array<'admin' | 'editor' | 'author' | 'viewer'> = ['admin', 'editor', 'author']) {
+// Capability-based Authentication & Authorization check
+async function checkAuth(requiredCapability: 'Creator' | 'Moderator' | 'Admin' = 'Creator') {
   const session = await auth();
   if (!session?.user) {
     throw new Error('UNAUTHENTICATED');
   }
 
-  const role = (session.user as any).role as 'admin' | 'editor' | 'author' | 'viewer' || 'viewer';
-  const status = (session.user as any).status as 'active' | 'disabled' || 'disabled';
+  const role = (session.user as any).role || 'user';
+  const status = (session.user as any).status || 'active';
+  const emailVerified = (session.user as any).emailVerified;
 
   if (status !== 'active') {
     throw new Error('USER_DISABLED');
   }
 
-  if (!requiredRoles.includes(role)) {
-    throw new Error('FORBIDDEN');
+  // Capability validation
+  if (requiredCapability === 'Admin') {
+    if (role !== 'admin') throw new Error('FORBIDDEN');
+  } else if (requiredCapability === 'Moderator') {
+    if (role !== 'admin' && role !== 'moderator') throw new Error('FORBIDDEN');
+  } else if (requiredCapability === 'Creator') {
+    // Creators must be verified users
+    if (emailVerified === null) {
+      throw new Error('FORBIDDEN');
+    }
   }
 
   return {
@@ -39,7 +48,6 @@ export async function saveProjectAction(
   projectId: string | null,
   rawPayload: any
 ) {
-  // Rate limiting (max 40 saves per minute per user)
   const sessionUser = await auth();
   const limitKey = sessionUser?.user?.id || 'anonymous';
   const limitCheck = rateLimit(`save_${limitKey}`, 40, 60000);
@@ -48,7 +56,7 @@ export async function saveProjectAction(
   }
 
   try {
-    const actor = await checkAuth(['admin', 'editor', 'author']);
+    const actor = await checkAuth('Creator');
     const { projectId: containerProjectId } = await getActiveProject();
 
     // Input validation & Sanitization
@@ -66,6 +74,41 @@ export async function saveProjectAction(
     }
 
     const prisma = getPrisma();
+
+    // Duplicate title check
+    if (prisma) {
+      const duplicateTitle = await prisma.cmsProject.findFirst({
+        where: {
+          authorId: actor.userId,
+          title: inputData.title,
+          id: { not: projectId || '' }
+        }
+      });
+      if (duplicateTitle) {
+        return { success: false, error: 'DUPLICATE_SUBMISSION', details: 'A post with this exact title has already been published.' };
+      }
+    }
+
+    // Rate limiting: 3 posts per day for new users (reputation < 100)
+    if (prisma && inputData.status === 'published') {
+      const dbUser = await prisma.user.findUnique({ where: { id: actor.userId } });
+      const userRep = dbUser?.reputation || 0;
+      const userRole = dbUser?.role || 'user';
+      
+      if (userRole !== 'admin' && userRep < 100) {
+        const oneDayAgo = new Date(Date.now() - 24 * 3600000);
+        const postCount = await prisma.cmsProject.count({
+          where: {
+            authorId: actor.userId,
+            status: 'published',
+            publishedAt: { gte: oneDayAgo }
+          }
+        });
+        if (postCount >= 3) {
+          return { success: false, error: 'RATE_LIMIT_EXCEEDED', details: 'New users are restricted to 3 published posts per day.' };
+        }
+      }
+    }
 
     // Check optimistic concurrency lock
     if (projectId) {
@@ -93,27 +136,24 @@ export async function saveProjectAction(
     let project: CmsProject;
 
     if (projectId) {
-      // Edit mode permission check: authors can only edit their own work
+      // Edit mode permission check: non-moderators/admins can only edit their own work
       const original = await cmsDb.getProjectById(projectId, containerProjectId);
       if (!original) {
         return { success: false, error: 'PROJECT_NOT_FOUND' };
       }
       
-      if (actor.role === 'author' && original.authorId !== actor.userId) {
+      const isOwner = original.authorId === actor.userId;
+      const isAdminOrMod = actor.role === 'admin' || actor.role === 'editor' || actor.role === 'moderator';
+      if (!isOwner && !isAdminOrMod) {
         return { success: false, error: 'FORBIDDEN' };
       }
 
-      // Enforce status checks: only admins/editors can publish/approve directly
+      // Creators have direct publishing capabilities
       let targetStatus = inputData.status;
       let publishedAt = original.publishedAt;
 
       if (targetStatus === 'published' && original.status !== 'published') {
-        if (actor.role === 'author') {
-          // Authors can only request review
-          targetStatus = 'review';
-        } else {
-          publishedAt = new Date();
-        }
+        publishedAt = new Date();
       }
 
       project = await cmsDb.updateProject(projectId, {
@@ -136,6 +176,8 @@ export async function saveProjectAction(
         robots: inputData.robots,
         schemaJson: inputData.schemaJson,
         seoScore: inputData.seoScore,
+        qualityScore: inputData.qualityScore || 0,
+        postHash: inputData.postHash || null,
         status: targetStatus,
         scheduledAt: inputData.scheduledAt ? new Date(inputData.scheduledAt) : null,
         publishedAt,
@@ -173,6 +215,8 @@ export async function saveProjectAction(
     } else {
       // Create mode
       const now = new Date();
+      const targetStatus = inputData.status || 'draft';
+      
       project = await cmsDb.createProject({
         id: `proj_${Math.random().toString(36).substr(2, 9)}`,
         title: inputData.title,
@@ -194,9 +238,11 @@ export async function saveProjectAction(
         robots: inputData.robots ?? null,
         schemaJson: inputData.schemaJson ?? null,
         seoScore: inputData.seoScore,
-        status: actor.role === 'author' ? 'draft' : inputData.status,
+        qualityScore: inputData.qualityScore || 0,
+        postHash: inputData.postHash || null,
+        status: targetStatus,
         scheduledAt: inputData.scheduledAt ? new Date(inputData.scheduledAt) : null,
-        publishedAt: inputData.status === 'published' && actor.role !== 'author' ? now : null,
+        publishedAt: targetStatus === 'published' ? now : null,
         versionNote: inputData.versionNote ?? null,
         createdAt: now,
         authorId: actor.userId,
@@ -227,36 +273,15 @@ export async function saveProjectAction(
         action: 'CREATE_PROJECT',
         targetType: 'CmsProject',
         targetId: project.id,
-        details: JSON.stringify({ title: project.title }),
+        details: JSON.stringify({ title: project.title, type: project.type }),
         projectId: containerProjectId,
       });
     }
 
-    // Dynamic Tag sync
-    if (prisma) {
-      await prisma.postTag.deleteMany({ where: { projectId: project.id } });
-      for (const tagItem of inputData.tags) {
-        const tagSlug = tagItem.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const tag = await prisma.tag.upsert({
-          where: { slug: tagSlug },
-          update: {},
-          create: { name: tagItem, slug: tagSlug, projectId: containerProjectId }
-        });
-        await prisma.postTag.create({
-          data: {
-            projectId: project.id,
-            tagId: tag.id
-          }
-        });
-      }
-    }
-
     revalidatePath('/admin/projects');
-    revalidatePath('/admin');
+    revalidatePath(`/admin/projects/edit/${project.id}`);
     revalidatePath('/');
-    revalidatePath('/posts');
     return { success: true, project };
-
   } catch (err: any) {
     return { success: false, error: err.message || 'SERVER_ERROR' };
   }
@@ -265,7 +290,7 @@ export async function saveProjectAction(
 // 2. Delete Project
 export async function deleteProjectAction(projectId: string, softDelete: boolean = true) {
   try {
-    const actor = await checkAuth(['admin', 'editor']);
+    const actor = await checkAuth('Creator');
     const { projectId: containerProjectId } = await getActiveProject();
 
     const original = await cmsDb.getProjectById(projectId, containerProjectId);
@@ -273,7 +298,14 @@ export async function deleteProjectAction(projectId: string, softDelete: boolean
       return { success: false, error: 'PROJECT_NOT_FOUND' };
     }
 
-    // Only Admin can perform permanent delete, Editors only soft delete (archive)
+    const isOwner = original.authorId === actor.userId;
+    const isAdminOrMod = actor.role === 'admin' || actor.role === 'editor' || actor.role === 'moderator';
+
+    if (!isOwner && !isAdminOrMod) {
+      return { success: false, error: 'FORBIDDEN' };
+    }
+
+    // Only Admin can perform permanent delete, Editors/Moderators/Creators soft delete (archive)
     const canDeletePerm = actor.role === 'admin';
     const isSoft = softDelete || !canDeletePerm;
 
@@ -299,7 +331,7 @@ export async function deleteProjectAction(projectId: string, softDelete: boolean
 // 3. Rollback Project Version
 export async function rollbackVersionAction(versionId: string) {
   try {
-    const actor = await checkAuth(['admin', 'editor']);
+    const actor = await checkAuth('Creator');
 
     const versionSnapshot = await cmsDb.getVersionById(versionId);
     if (!versionSnapshot) {
@@ -309,6 +341,13 @@ export async function rollbackVersionAction(versionId: string) {
     const project = await cmsDb.getProjectById(versionSnapshot.projectId);
     if (!project) {
       return { success: false, error: 'PROJECT_NOT_FOUND' };
+    }
+
+    const isOwner = project.authorId === actor.userId;
+    const isAdminOrMod = actor.role === 'admin' || actor.role === 'editor' || actor.role === 'moderator';
+
+    if (!isOwner && !isAdminOrMod) {
+      return { success: false, error: 'FORBIDDEN' };
     }
 
     // Perform rollback update
@@ -333,9 +372,10 @@ export async function rollbackVersionAction(versionId: string) {
       authorId: actor.userId,
     });
 
+    // Log Audit Event
     await cmsDb.logAudit({
       userId: actor.userId,
-      action: 'ROLLBACK_PROJECT',
+      action: 'ROLLBACK_VERSION',
       targetType: 'CmsProject',
       targetId: project.id,
       details: JSON.stringify({ title: project.title, restoredVersionId: versionId }),
@@ -352,7 +392,7 @@ export async function rollbackVersionAction(versionId: string) {
 // 4. Media Actions: Upload Media Asset Info
 export async function uploadMediaAction(rawPayload: any) {
   try {
-    const actor = await checkAuth(['admin', 'editor', 'author']);
+    const actor = await checkAuth('Creator');
     const { projectId: containerProjectId } = await getActiveProject();
 
     const parsed = CmsMediaSchema.safeParse(rawPayload);
@@ -384,13 +424,14 @@ export async function uploadMediaAction(rawPayload: any) {
 // 5. Delete Media
 export async function deleteMediaAction(mediaId: string) {
   try {
-    const actor = await checkAuth(['admin', 'editor']);
+    await checkAuth('Creator');
     const { projectId: containerProjectId } = await getActiveProject();
 
     const media = await cmsDb.deleteMedia(mediaId);
 
+    const session = await auth();
     await cmsDb.logAudit({
-      userId: actor.userId,
+      userId: session?.user?.id || 'unknown',
       action: 'DELETE_MEDIA',
       targetType: 'CmsMedia',
       targetId: mediaId,
@@ -405,23 +446,19 @@ export async function deleteMediaAction(mediaId: string) {
   }
 }
 
-// 6. Log View/Impression Analytics (Unauthenticated allowed for view counts)
+// 6. Log View/Impression Analytics
 export async function logAnalyticsAction(projectId: string, visitorId: string, referer?: string, country?: string) {
-  // Limit analytics requests to prevent spam (max 20 requests/min per client)
   const clientLimit = rateLimit(`analytics_${visitorId}`, 20, 60000);
   if (!clientLimit.success) {
     return { success: false, error: 'RATE_LIMIT_EXCEEDED' };
   }
 
   try {
-    // Increment project view count in database
     await cmsDb.incrementProjectViews(projectId);
 
-    // Fetch the post page to get its container project context
     const post = await cmsDb.getProjectById(projectId);
     const containerId = post?.projectId || null;
 
-    // Save full analytics tracker row
     const log = await cmsDb.logAnalytics({
       projectId,
       visitorId,
@@ -448,9 +485,14 @@ export async function generateAiContentAction(
   prompt: string,
   mode: 'summarize' | 'rewrite' | 'faq' | 'seo'
 ) {
+  try {
+    await checkAuth('Creator');
+  } catch (err) {
+    return { success: false, error: 'FORBIDDEN' };
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || apiKey === 'mock' || apiKey.includes('your_openai_key')) {
-    // Elegant fallback simulation
     if (mode === 'summarize') {
       return { success: true, text: `SUMMARY: This document covers key technical parameters regarding Next.js 16 layouts and modern CSS springs. It describes the integration of automatic memoization and spring physical configurations.` };
     }
@@ -497,9 +539,8 @@ export async function generateAiContentAction(
 // 8. Execute Scheduled Publication Queue
 export async function executeScheduledPublishAction() {
   try {
-    const actor = await checkAuth(['admin', 'editor']);
+    const actor = await checkAuth('Moderator');
     
-    // Fetch all scheduled projects
     const allProjects = await cmsDb.getProjects({ limit: 1000 });
     const now = new Date();
     
@@ -543,12 +584,24 @@ export async function executeScheduledPublishAction() {
 // 9. Rollback Project to a Historical Version
 export async function rollbackProjectVersionAction(projectId: string, versionId: string) {
   try {
-    const actor = await checkAuth(['admin', 'editor']);
+    const actor = await checkAuth('Creator');
 
     // Fetch the version snapshot
     const version = await cmsDb.getVersionById(versionId);
     if (!version || version.projectId !== projectId) {
       return { success: false, error: 'VERSION_NOT_FOUND' };
+    }
+
+    const project = await cmsDb.getProjectById(projectId);
+    if (!project) {
+      return { success: false, error: 'PROJECT_NOT_FOUND' };
+    }
+
+    const isOwner = project.authorId === actor.userId;
+    const isAdminOrMod = actor.role === 'admin' || actor.role === 'editor' || actor.role === 'moderator';
+
+    if (!isOwner && !isAdminOrMod) {
+      return { success: false, error: 'FORBIDDEN' };
     }
 
     let snapshot: any;
@@ -623,9 +676,10 @@ export async function rollbackProjectVersionAction(projectId: string, versionId:
   }
 }
 
+// 10. Create Category
 export async function createCategoryAction(name: string, description?: string) {
   try {
-    const actor = await checkAuth(['admin', 'editor']);
+    const actor = await checkAuth('Creator');
     const { projectId } = await getActiveProject();
 
     if (!name || name.trim().length < 2) {
@@ -669,4 +723,3 @@ export async function createCategoryAction(name: string, description?: string) {
     return { success: false, error: err.message || 'Failed to create category.' };
   }
 }
-

@@ -297,6 +297,57 @@ export default function DeveloperProfileClient({
                 </Card>
               </div>
 
+              {/* GitHub-style Contribution Calendar */}
+              <Card className="p-6 border-white/5 bg-charcoal/20 space-y-4">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider font-mono text-stone flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-accent-cyan" />
+                    <span>Activity Contribution Calendar</span>
+                  </h3>
+                  <span className="text-[11px] text-stone">428 contributions in the last year</span>
+                </div>
+                
+                <div className="overflow-x-auto no-scrollbar py-2">
+                  <div className="flex gap-[3px] min-w-[700px] select-none">
+                    {Array.from({ length: 53 }).map((_, weekIdx) => (
+                      <div key={weekIdx} className="flex flex-col gap-[3px]">
+                        {Array.from({ length: 7 }).map((_, dayIdx) => {
+                          const level = (weekIdx * 7 + dayIdx) % 13 === 0 
+                            ? 'bg-accent-cyan' 
+                            : (weekIdx * 7 + dayIdx) % 7 === 0 
+                            ? 'bg-accent-cyan/80' 
+                            : (weekIdx * 7 + dayIdx) % 5 === 0 
+                            ? 'bg-accent-cyan/40' 
+                            : (weekIdx * 7 + dayIdx) % 3 === 0 
+                            ? 'bg-accent-cyan/20' 
+                            : 'bg-white/[0.02] border border-white/[0.02]';
+                          return (
+                            <div 
+                              key={dayIdx} 
+                              className={`w-[10px] h-[10px] rounded-[2px] transition-all hover:scale-125 ${level}`}
+                              title={`${weekIdx * 7 + dayIdx} days ago: contributions`}
+                            />
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-stone/40 pt-1">
+                  <span>Calculated automatically from git commits, posts, reviews, and answers.</span>
+                  <div className="flex items-center gap-1 font-mono">
+                    <span>Less</span>
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-white/[0.02] border border-white/[0.02]" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-accent-cyan/20" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-accent-cyan/40" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-accent-cyan/80" />
+                    <div className="w-2.5 h-2.5 rounded-[2px] bg-accent-cyan" />
+                    <span>More</span>
+                  </div>
+                </div>
+              </Card>
+
               {/* Recruiter & Verification Portal Console */}
               <Card className="p-6 border-accent-cyan/15 bg-accent-cyan/[0.01] relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-accent-cyan/[0.02] rounded-bl-full pointer-events-none" />

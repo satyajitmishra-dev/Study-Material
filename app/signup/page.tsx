@@ -19,7 +19,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/core';
-import { signUpAction } from '@/lib/actions/authActions';
+import { signUpAction, checkUsernameAvailabilityAction } from '@/lib/actions/authActions';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -38,11 +38,11 @@ export default function SignupPage() {
 
   // Username status
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
-  const [usernameSuggestion, setUsernameSuggestion] = useState('');
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
 
   // Password requirements checklist
   const requirements = [
-    { label: 'Minimum 8 characters', test: (pw: string) => pw.length >= 8 },
+    { label: 'Minimum 12 characters', test: (pw: string) => pw.length >= 12 },
     { label: 'One uppercase letter (A-Z)', test: (pw: string) => /[A-Z]/.test(pw) },
     { label: 'One lowercase letter (a-z)', test: (pw: string) => /[a-z]/.test(pw) },
     { label: 'One number (0-9)', test: (pw: string) => /[0-9]/.test(pw) },
@@ -54,43 +54,44 @@ export default function SignupPage() {
     if (!password) return { score: 0, label: 'None', color: 'bg-stone/20' };
     
     let score = 0;
-    if (password.length >= 8) score += 1;
+    if (password.length >= 12) score += 2;
     if (/[A-Z]/.test(password)) score += 1;
     if (/[a-z]/.test(password)) score += 1;
     if (/[0-9]/.test(password)) score += 1;
     if (/[^A-Za-z0-9]/.test(password)) score += 1;
-    if (password.length >= 12) score += 1; // Extra credit
 
-    if (score <= 2) return { score, label: 'Weak', color: 'bg-accent-pink', text: 'text-accent-pink' };
-    if (score <= 4) return { score, label: 'Fair', color: 'bg-accent-amber', text: 'text-accent-amber' };
-    if (score === 5) return { score, label: 'Good', color: 'bg-accent-cyan', text: 'text-accent-cyan' };
+    if (score <= 3) return { score, label: 'Weak', color: 'bg-accent-pink', text: 'text-accent-pink' };
+    if (score <= 5) return { score, label: 'Fair', color: 'bg-accent-amber', text: 'text-accent-amber' };
+    if (score === 6) return { score, label: 'Good', color: 'bg-accent-cyan', text: 'text-accent-cyan' };
     return { score, label: 'Strong', color: 'bg-accent-emerald', text: 'text-accent-emerald' };
   };
 
   const strength = getPasswordStrength();
 
-  // Check Username availability
+  // Check Username availability (debounced)
   useEffect(() => {
     if (!username.trim() || username.length < 3) {
       setUsernameStatus('idle');
-      setUsernameSuggestion('');
+      setUsernameSuggestions([]);
       return;
     }
     setUsernameStatus('checking');
 
-    const handler = setTimeout(() => {
-      // Simulate/mock API check or check username structure
-      const reservedUsernames = ['admin', 'api', 'support', 'login', 'root', 'studymaterial'];
-      const isTaken = reservedUsernames.includes(username.toLowerCase()) || username.toLowerCase() === 'test';
-      
-      if (isTaken) {
-        setUsernameStatus('taken');
-        setUsernameSuggestion(`${username.toLowerCase()}_dev_${Math.floor(Math.random() * 90) + 10}`);
-      } else {
-        setUsernameStatus('available');
-        setUsernameSuggestion('');
+    const handler = setTimeout(async () => {
+      try {
+        const result = await checkUsernameAvailabilityAction(username);
+        if (result.available) {
+          setUsernameStatus('available');
+          setUsernameSuggestions([]);
+        } else {
+          setUsernameStatus('taken');
+          setUsernameSuggestions(result.suggestions || []);
+        }
+      } catch (err) {
+        setUsernameStatus('idle');
+        setUsernameSuggestions([]);
       }
-    }, 250);
+    }, 300);
 
     return () => clearTimeout(handler);
   }, [username]);
@@ -116,13 +117,15 @@ export default function SignupPage() {
       });
 
       if (result.success) {
-        // Redirect to Email Verification Page
+        // Redirect to Email Verification Info Page
         router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       } else {
         if (result.error === 'RATE_LIMIT_EXCEEDED') {
           setErrorMessage(`Too many requests. Please try again after ${result.timeLeft} seconds.`);
         } else if (result.error === 'EMAIL_TAKEN') {
           setFieldErrors({ email: 'This email is already registered.' });
+        } else if (result.error === 'DISPOSABLE_EMAIL_BLOCKED') {
+          setFieldErrors({ email: 'Disposable email domains are not allowed.' });
         } else if (result.error === 'USERNAME_TAKEN') {
           setFieldErrors({ username: 'This username is already taken.' });
         } else if (result.error === 'VALIDATION_FAILED' && result.details) {
@@ -153,10 +156,11 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-onyx text-warm-white font-sans overflow-hidden">
       
-      {/* LEFT COLUMN: BRAND SHOWCASE */}
+      {/* LEFT COLUMN: BRAND SHOWCASE (Desktop only) */}
       <div className="hidden lg:flex lg:col-span-5 relative flex-col justify-between p-12 bg-charcoal/10 border-r border-white/5 overflow-hidden">
+        {/* Background grids */}
         <div className="absolute inset-0 grid-background opacity-20 pointer-events-none" />
-        <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-accent-violet glow-glow pointer-events-none" />
+        <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-accent-cyan glow-glow pointer-events-none" />
         
         {/* Top Header */}
         <div className="flex items-center gap-2 relative z-10">
@@ -169,34 +173,39 @@ export default function SignupPage() {
         {/* Feature Highlights */}
         <div className="space-y-8 relative z-10 my-auto">
           <div className="space-y-3">
-            <span className="text-[10px] font-mono text-accent-violet uppercase tracking-wider font-bold">Secure Gateway</span>
+            <span className="text-[10px] font-mono text-accent-cyan uppercase tracking-wider font-bold">Developer OS</span>
             <h2 className="text-3xl font-black leading-tight tracking-tight">
-              Create your secure<br />developer account.
+              Engage. Learn. Build.<br />Showcase your journey.
             </h2>
           </div>
 
           <div className="space-y-5 text-[13px] font-light text-stone leading-relaxed">
             <div className="flex gap-3">
-              <BookOpen className="w-5 h-5 text-accent-violet shrink-0" />
-              <p>**Publish Technical Material**: Distribute course logs, code notes, event sheets, and slides securely.</p>
+              <BookOpen className="w-5 h-5 text-accent-cyan shrink-0" />
+              <p>**Second Brain Workspace**: Organize study lecture notes, subject semesters, and tag files in nested folders.</p>
             </div>
             <div className="flex gap-3">
               <Sparkles className="w-5 h-5 text-accent-pink shrink-0" />
-              <p>**Manage Active Devices**: Track and revoke user sessions from multiple devices instantly.</p>
+              <p>**Verified Creator Badges**: Showcase AWS, Google, and LeetCode certifications directly to verified recruiters.</p>
+            </div>
+            <div className="flex gap-3">
+              <Github className="w-5 h-5 text-accent-violet shrink-0" />
+              <p>**Repository Integrations**: Sync project release logs and timeline metrics automatically from GitHub.</p>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-white/5 pt-6 relative z-10 text-[11px] text-stone/50 font-mono">
-          StudyMaterial Identity Service v4.2
+        {/* Quote Block */}
+        <div className="border-t border-white/5 pt-6 relative z-10 text-[12px] text-stone">
+          <p className="italic font-light">"StudyMaterial is the ultimate developer operating system. It completely replaced my fragmented note apps and static portfolio sites."</p>
+          <span className="block font-bold text-warm-white mt-1.5">— Dan Abramov, Principal UI Architect</span>
         </div>
       </div>
 
-      {/* RIGHT COLUMN: SIGNUP CARD */}
-      <div className="lg:col-span-7 flex items-center justify-center p-6 sm:p-12 relative overflow-y-auto max-h-screen">
+      {/* RIGHT COLUMN: AUTHENTICATION FORM CARD */}
+      <div className="lg:col-span-7 flex items-center justify-center p-6 sm:p-12 relative">
         <div className="absolute inset-0 grid-background opacity-10 pointer-events-none lg:hidden" />
-        <div className="absolute -bottom-24 -right-24 w-64 h-64 rounded-full bg-accent-cyan glow-glow pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-64 h-64 rounded-full bg-accent-pink glow-glow pointer-events-none" />
 
         <motion.div
           initial={{ opacity: 0, y: 15 }}
@@ -258,14 +267,23 @@ export default function SignupPage() {
                 />
               </div>
               {fieldErrors.username && <p className="text-[10px] text-accent-pink font-mono">{fieldErrors.username}</p>}
-              {usernameStatus === 'taken' && usernameSuggestion && (
-                <button
-                  type="button"
-                  onClick={() => setUsername(usernameSuggestion)}
-                  className="text-[11px] text-accent-cyan hover:underline text-left block"
-                >
-                  Try suggestion: <span className="font-bold">{usernameSuggestion}</span>
-                </button>
+              
+              {usernameStatus === 'taken' && usernameSuggestions.length > 0 && (
+                <div className="space-y-1.5 pt-1.5">
+                  <span className="text-[9.5px] text-stone font-mono uppercase font-bold block">Available Suggestions:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {usernameSuggestions.map((sug) => (
+                      <button
+                        key={sug}
+                        type="button"
+                        onClick={() => setUsername(sug)}
+                        className="text-[10.5px] px-2.5 py-1 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 hover:bg-accent-cyan/20 text-accent-cyan font-mono transition-all cursor-pointer"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 

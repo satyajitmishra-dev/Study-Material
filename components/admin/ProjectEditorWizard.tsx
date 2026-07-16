@@ -30,6 +30,7 @@ import { saveProjectAction, generateAiContentAction, createCategoryAction } from
 import TipTapEditor from './TipTapEditor';
 import ImageUploadField from './ImageUploadField';
 import { SeoEngine, SeoAuditResult } from '@/lib/seo/SeoEngine';
+import { QualityScoreEngine } from '@/lib/seo/QualityScoreEngine';
 
 interface ProjectEditorWizardProps {
   project: any | null; // CmsProject or null
@@ -47,10 +48,11 @@ const DEFAULT_CATEGORIES = [
 
 const STEPS = [
   { id: 'basic', name: '1. Basic Info' },
-  { id: 'content', name: '2. Editor & Content' },
-  { id: 'seo', name: '3. SEO Studio' },
-  { id: 'preview', name: '4. Preview' },
-  { id: 'publish', name: '5. Publish Config' },
+  { id: 'content', name: '2. Editor' },
+  { id: 'preview', name: '3. Preview' },
+  { id: 'seo', name: '4. SEO Studio' },
+  { id: 'publish', name: '5. Guidelines & Publish' },
+  { id: 'share', name: '6. Share' },
 ];
 
 export default function ProjectEditorWizard({ project, categories = [] }: ProjectEditorWizardProps) {
@@ -192,6 +194,19 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
     }
   }, [titleVal, project, setValue]);
 
+  // Content Quality Score engine analysis
+  const qualityAnalysis = useMemo(() => {
+    return QualityScoreEngine.analyze(formValues.title || '', formValues.content || '');
+  }, [formValues.title, formValues.content]);
+
+  // Sync Quality Score to Zod state
+  useEffect(() => {
+    setValue('qualityScore', qualityAnalysis.score, { shouldDirty: false });
+  }, [qualityAnalysis.score, setValue]);
+
+  const [acceptedGuidelines, setAcceptedGuidelines] = useState(false);
+  const [newPostUrl, setNewPostUrl] = useState('');
+
   // Track changes to trigger autosave
   useEffect(() => {
     setIsDirtyState(true);
@@ -308,19 +323,28 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
 
   // Submit / Publish Final Form
   const onFormSubmit = async (data: CmsProjectInput) => {
+    if (!acceptedGuidelines && data.status === 'published') {
+      alert('Please check and accept the Community Guidelines before publishing.');
+      return;
+    }
     setSaveStatus('saving');
     try {
       const res = await saveProjectAction(project?.id || null, {
         ...data,
+        qualityScore: qualityAnalysis.score,
+        postHash: `hash-${data.title.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
         versionNote: data.versionNote || 'Published final release version',
       });
 
-      if (res.success) {
+      if (res.success && res.project) {
         setSaveStatus('saved');
-        router.push('/admin/projects');
+        setIsDirtyState(false);
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        setNewPostUrl(`${baseUrl}/posts/${res.project.slug}`);
+        setActiveStep('share');
       } else {
         setSaveStatus('error');
-        alert(res.error || 'Failed to save project settings.');
+        alert(res.error || 'Failed to save publication settings.');
       }
     } catch (err) {
       setSaveStatus('error');
@@ -603,6 +627,39 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
                 </Button>
               </div>
             )}
+
+            {/* Quality Score Analysis widget */}
+            <div className="border-t border-white/5 pt-4 mt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-stone font-semibold">Content Quality Score</span>
+                <span className={`text-[16px] font-bold font-mono ${
+                  qualityAnalysis.score >= 80 ? 'text-accent-emerald' : qualityAnalysis.score >= 50 ? 'text-accent-cyan' : 'text-accent-pink'
+                }`}>
+                  {qualityAnalysis.score}/100
+                </span>
+              </div>
+              <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    qualityAnalysis.score >= 80 ? 'bg-accent-emerald' : qualityAnalysis.score >= 50 ? 'bg-accent-cyan' : 'bg-accent-pink'
+                  }`}
+                  style={{ width: `${qualityAnalysis.score}%` }}
+                />
+              </div>
+
+              <div className="space-y-1.5 pt-2 max-h-[180px] overflow-y-auto custom-scrollbar">
+                {qualityAnalysis.suggestions.length > 0 ? (
+                  qualityAnalysis.suggestions.map((s, i) => (
+                    <div key={i} className="flex items-start gap-1.5 text-[10.5px] text-stone/80">
+                      <span className="text-accent-orange font-bold shrink-0">•</span>
+                      <span>{s}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[10px] text-accent-emerald font-mono">✓ High quality draft ready to publish!</p>
+                )}
+              </div>
+            </div>
           </Card>
         </motion.div>
       )}
@@ -1032,6 +1089,22 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
               {errors.versionNote && <p className="text-accent-pink text-[11px] font-mono">{errors.versionNote.message}</p>}
             </div>
 
+            {/* Community Guidelines Checkbox */}
+            {formValues.status === 'published' && (
+              <div className="p-4 rounded-xl bg-onyx/40 border border-white/5 flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="guidelines-checkbox"
+                  checked={acceptedGuidelines}
+                  onChange={(e) => setAcceptedGuidelines(e.target.checked)}
+                  className="mt-0.5 w-4.5 h-4.5 accent-accent-cyan rounded border-white/10 bg-transparent cursor-pointer"
+                />
+                <label htmlFor="guidelines-checkbox" className="text-[12px] text-stone leading-relaxed select-none cursor-pointer">
+                  I accept the <span className="text-accent-cyan hover:underline font-bold">Community Guidelines</span>. I certify that this content contains no plagiarism, spam, marketing links, or abusive language.
+                </label>
+              </div>
+            )}
+
             <Button type="submit" variant="primary" className="magnetic-item w-full py-2.5">
               <Save className="w-4 h-4" />
               <span>Confirm & Save Changes</span>
@@ -1043,25 +1116,93 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
               <Clock className="w-4 h-4 text-accent-cyan" />
               <span>Release Summary</span>
             </h3>
+            
             <div className="space-y-3 font-mono">
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span>Quality Score:</span>
+                <span className={`font-bold ${qualityAnalysis.score >= 80 ? 'text-accent-emerald' : 'text-accent-cyan'}`}>{qualityAnalysis.score}/100</span>
+              </div>
               <div className="flex justify-between border-b border-white/5 pb-2">
                 <span>Title Length:</span>
                 <span className="text-warm-white">{formValues.title.length} chars</span>
               </div>
               <div className="flex justify-between border-b border-white/5 pb-2">
-                <span>Slug Status:</span>
-                <span className="text-accent-emerald">Valid</span>
-              </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
                 <span>Total Words:</span>
-                <span className="text-warm-white">{wordCount}</span>
+                <span className="text-warm-white">{qualityAnalysis.wordCount}</span>
               </div>
               <div className="flex justify-between border-b border-white/5 pb-2">
                 <span>Reading Time:</span>
-                <span className="text-warm-white">{readingTime} min</span>
+                <span className="text-warm-white">{qualityAnalysis.readingTimeMin} min</span>
               </div>
             </div>
           </Card>
+        </motion.div>
+      )}
+
+      {/* STEP 6: SHARE PANEL */}
+      {activeStep === 'share' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto text-center py-12 space-y-6">
+          <div className="w-16 h-16 rounded-full bg-accent-emerald/10 border border-accent-emerald/20 flex items-center justify-center mx-auto text-accent-emerald">
+            <Check className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-extrabold text-warm-white">🎉 Your Content is Live!</h2>
+            <p className="text-[13px] text-stone leading-relaxed font-light">
+              It has been successfully compiled and index-synced into the portal discovery engines. Share it with your network!
+            </p>
+          </div>
+
+          <Card className="p-5 space-y-4 bg-charcoal/20 border-white/5 text-left">
+            <span className="text-[10px] font-mono text-stone uppercase tracking-wider block font-bold">Share Links</span>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <a
+                href={`https://twitter.com/intent/tweet?text=Check out my latest post: ${encodeURIComponent(formValues.title)} ${encodeURIComponent(newPostUrl)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-warm-white text-[12px] font-bold transition-all"
+              >
+                <span>Share on X</span>
+              </a>
+              <a
+                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(newPostUrl)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 text-warm-white text-[12px] font-bold transition-all"
+              >
+                <span>Share on LinkedIn</span>
+              </a>
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={newPostUrl}
+                className="flex-1 bg-onyx px-3 py-1.5 rounded-lg border border-white/5 text-[11px] text-stone font-mono select-all outline-none"
+              />
+              <Button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(newPostUrl);
+                  alert('Copied link to clipboard!');
+                }}
+                className="h-9 text-[11px]"
+              >
+                Copy Link
+              </Button>
+            </div>
+          </Card>
+
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => router.push('/studio/projects')}
+            className="w-full justify-center text-[12px] uppercase font-bold tracking-wider py-2.5"
+          >
+            Back to Dashboard
+          </Button>
         </motion.div>
       )}
 
@@ -1086,16 +1227,19 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
           variant={activeStep === 'publish' ? 'accent' : 'secondary'}
           onClick={() => {
             const currentIdx = STEPS.findIndex(s => s.id === activeStep);
-            if (currentIdx < STEPS.length - 1) {
-              setActiveStep(STEPS[currentIdx + 1].id);
-            } else {
+            if (activeStep === 'publish') {
               handleSubmit(onFormSubmit)();
+            } else if (activeStep === 'share') {
+              router.push('/studio/projects');
+            } else if (currentIdx < STEPS.length - 1) {
+              setActiveStep(STEPS[currentIdx + 1].id);
             }
           }}
           className="text-[12px]"
+          disabled={activeStep === 'share'}
         >
-          <span>{activeStep === 'publish' ? 'Save & Finish' : 'Next Step'}</span>
-          {activeStep !== 'publish' && <ArrowRight className="w-4 h-4" />}
+          <span>{activeStep === 'publish' ? 'Save & Finish' : activeStep === 'share' ? 'Done' : 'Next Step'}</span>
+          {activeStep !== 'publish' && activeStep !== 'share' && <ArrowRight className="w-4 h-4" />}
         </Button>
       </div>
 
