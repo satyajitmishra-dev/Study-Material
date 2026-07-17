@@ -60,7 +60,7 @@ export class InternalLinkEngine {
       // Fetch posts under same category
       const related = await prisma.cmsProject.findMany({
         where: {
-          status: 'published',
+          status: 'PUBLISHED',
           id: { not: postId },
           ...(categoryId && { categoryId })
         },

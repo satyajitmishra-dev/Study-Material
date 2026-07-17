@@ -130,7 +130,7 @@ export const DevToProvider: BaseProvider = {
           article: {
             title: title || 'Pushed update',
             body_markdown: content,
-            published: settings?.publishState === 'published',
+            published: settings?.publishState === 'PUBLISHED',
           }
         }),
       });
@@ -230,7 +230,7 @@ export const MediumProvider: BaseProvider = {
           title: title || 'Pushed update',
           contentFormat: 'markdown',
           content,
-          publishStatus: settings?.publishState === 'published' ? 'public' : 'draft',
+          publishStatus: settings?.publishState === 'PUBLISHED' ? 'public' : 'DRAFT',
         })
       });
       const data = await postRes.json();

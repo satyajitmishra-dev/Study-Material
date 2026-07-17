@@ -2,6 +2,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { publicDb } from '@/lib/database/publicDb';
 import DeveloperProfileClient from '@/components/public/DeveloperProfileClient';
 import { Metadata } from 'next';
+import { auth } from '@/auth';
 
 interface PageProps {
   params: Promise<{
@@ -52,13 +53,23 @@ export const dynamic = 'force-dynamic';
 
 export default async function DeveloperProfilePage({ params }: PageProps) {
   const { username } = await params;
-  const profileData = await publicDb.getDeveloperProfile(username);
+  const session = await auth();
+  const profileData = await publicDb.getDeveloperProfile(username, session?.user?.id);
 
   if (!profileData) {
     const redir = await publicDb.getCmsRedirect(`/u/${username}`);
     if (redir) {
       permanentRedirect(redir.targetPath);
     }
+
+    const history = await publicDb.getUsernameHistory(username);
+    if (history) {
+      const targetUser = history.user || await publicDb.getUserById(history.userId);
+      if (targetUser?.username) {
+        permanentRedirect(`/u/${targetUser.username}`);
+      }
+    }
+
     notFound();
   }
 
@@ -100,6 +111,7 @@ export default async function DeveloperProfilePage({ params }: PageProps) {
         initialFollowers={profileData.followers}
         initialFollowing={profileData.following}
         initialBookmarks={profileData.bookmarks || []}
+        sessionUser={session?.user || null}
       />
     </>
   );

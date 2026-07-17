@@ -126,7 +126,7 @@ model CmsProject {
   tags           String[]       @default([]) // Legacy/backup tags list
   language       String         @default("en")
   type           String         @default("article") // article | release_notes | update
-  visibility     String         @default("public") // public | private | unlisted | password | members | premium
+  visibility     Visibility     @default(PUBLIC)
   password       String?        // Password for password-protected posts
   thumbnail      String?
   coverImage     String?
@@ -142,7 +142,8 @@ model CmsProject {
   qualityScore   Int            @default(0)
   postHash       String?
   views          Int            @default(0)
-  status         String         @default("draft") // draft | review | approved | scheduled | published | archived
+  status         ContentStatus  @default(DRAFT)
+  featureLevel   FeatureLevel   @default(NONE)
   publishedAt    DateTime?
   scheduledAt    DateTime?
   versionNote    String?
@@ -1479,6 +1480,32 @@ model PasswordHistory {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+enum ContentStatus {
+  DRAFT          @map("draft")
+  IN_REVIEW      @map("review")
+  NEEDS_CHANGES  @map("needs_changes")
+  APPROVED       @map("approved")
+  SCHEDULED      @map("scheduled")
+  PUBLISHED      @map("published")
+  ARCHIVED       @map("archived")
+  TRASH          @map("trash")
+  DELETED        @map("deleted")
+  HIDDEN         @map("hidden")
+}
+
+enum Visibility {
+  PUBLIC     @map("public")
+  PRIVATE    @map("private")
+  FOLLOWERS  @map("followers")
+  UNLISTED   @map("unlisted")
+}
+
+enum FeatureLevel {
+  NONE       @map("none")
+  PROFILE    @map("profile")
+  GLOBAL     @map("global")
 }
 
 

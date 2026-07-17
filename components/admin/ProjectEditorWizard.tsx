@@ -493,7 +493,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
 
   // Submit / Publish Final Form
   const onFormSubmit = async (data: CmsProjectInput) => {
-    if (!acceptedGuidelines && data.status === 'published') {
+    if (!acceptedGuidelines && data.status === 'PUBLISHED') {
       alert('Please check and accept the Community Guidelines before publishing.');
       return;
     }
@@ -1286,7 +1286,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
                 </select>
               </div>
 
-              {formValues.status === 'scheduled' && (
+              {formValues.status === 'SCHEDULED' && (
                 <Input
                   label="Publish Date & Time"
                   type="datetime-local"
@@ -1307,7 +1307,7 @@ export default function ProjectEditorWizard({ project, categories = [] }: Projec
               {errors.versionNote && <p className="text-accent-pink text-[11px] font-mono">{errors.versionNote.message}</p>}
             </div>
 
-            {formValues.status === 'published' && (
+            {formValues.status === 'PUBLISHED' && (
               <div className="p-4 rounded-xl bg-onyx/40 border border-white/5 flex items-start gap-3">
                 <input
                   type="checkbox"

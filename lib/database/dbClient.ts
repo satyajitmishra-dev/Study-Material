@@ -20,6 +20,11 @@ export const getPrisma = (): PrismaClient | null => {
       idleTimeoutMillis: 20000,
       connectionTimeoutMillis: 10000,
     });
+
+    pool.on('error', (err) => {
+      console.warn('Database Pool Client encountered unexpected error:', err);
+    });
+
     globalForPrisma.prismaPool = pool;
 
     const adapter = new PrismaPg(pool);

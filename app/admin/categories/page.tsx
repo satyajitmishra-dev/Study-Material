@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, Button } from '@/components/ui/core';
-import { createCategoryAction } from '@/lib/actions/cms';
+import { createCategoryAction, getCategoriesAction } from '@/lib/actions/cms';
 import { getPrisma } from '@/lib/database/dbClient';
 
 export default function CategoriesPage() {
@@ -33,17 +33,14 @@ export default function CategoriesPage() {
     setLoading(true);
     setError('');
     try {
-      // In Next.js, we can define a client side fetch or call a simple endpoint/server action
-      // For sandbox simulation, we load standard developer categories
-      const mockCategories = [
-        { id: 'cat_1', name: 'Frontend Stacks', slug: 'frontend-stacks', description: 'React, Next.js, TailwindCSS tutorials' },
-        { id: 'cat_2', name: 'Backend Stacks', slug: 'backend-stacks', description: 'Node.js, Postgresql, Express API design' },
-        { id: 'cat_3', name: 'AI & Machine Learning', slug: 'ai-machine-learning', description: 'OpenAI, HuggingFace transformers, Vector databases' },
-        { id: 'cat_4', name: 'DevOps & Architectures', slug: 'devops-architectures', description: 'Docker, AWS deployments, GitHub CI/CD actions' }
-      ];
-      setCategories(mockCategories);
-    } catch (err) {
-      setError('Failed to load categories.');
+      const res = await getCategoriesAction();
+      if (res.success && res.categories) {
+        setCategories(res.categories);
+      } else {
+        setError(res.error || 'Unable to fetch taxonomy. Reason: Database connection is unavailable.');
+      }
+    } catch (err: any) {
+      setError(`Unable to fetch taxonomy. Reason: ${err.message || 'Database connection failure.'}`);
     } finally {
       setLoading(false);
     }
@@ -179,13 +176,33 @@ export default function CategoriesPage() {
               Active Taxonomy Folders ({categories.length})
             </h3>
             
+            {error && (
+              <div className="space-y-4">
+                <div className="p-4 bg-accent-pink/15 border border-accent-pink/20 text-accent-pink text-[12.5px] rounded-xl flex items-start gap-3 text-left">
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold">Error Loading Taxonomy</span>
+                    <p className="font-light text-stone/80 text-[11px] leading-relaxed">{error}</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="secondary" 
+                  onClick={fetchCategories} 
+                  className="text-[11px] py-1.5 px-3 flex items-center gap-1.5 mx-auto bg-white/5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Retry Connection</span>
+                </Button>
+              </div>
+            )}
+
             {loading ? (
               <div className="py-8 text-center text-stone">
                 <RefreshCw className="w-6 h-6 animate-spin mx-auto text-accent-cyan" />
               </div>
-            ) : categories.length === 0 ? (
+            ) : !error && categories.length === 0 ? (
               <p className="text-stone font-light text-[12.5px] py-6 text-center">No categories found.</p>
-            ) : (
+            ) : !error && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {categories.map((cat) => (
                   <div 

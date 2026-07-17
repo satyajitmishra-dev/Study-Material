@@ -23,7 +23,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { Card, Button } from '@/components/ui/core';
-import { reportsStore as initialReports, ContentReport, moderateContentAction, moderateUserAction } from '@/lib/actions/moderation';
+import { getAllReportsAction, ContentReport, moderateContentAction, moderateUserAction } from '@/lib/actions/moderation';
 
 interface CategoryNode {
   name: string;
@@ -32,10 +32,24 @@ interface CategoryNode {
 
 export default function ModerationClient() {
   const [activeSubTab, setActiveSubTab] = useState<'reports' | 'users' | 'categories' | 'logs'>('reports');
-  const [reports, setReports] = useState<ContentReport[]>(initialReports);
+  const [reports, setReports] = useState<ContentReport[]>([]);
   
   // Selected reports for bulk operations
   const [selectedReportIds, setSelectedReportIds] = useState<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    async function loadReports() {
+      try {
+        const res = await getAllReportsAction();
+        if (res.success && res.reports) {
+          setReports(res.reports);
+        }
+      } catch (err) {
+        console.error('Failed to load moderation reports:', err);
+      }
+    }
+    loadReports();
+  }, []);
 
   const [auditLogs, setAuditLogs] = useState<string[]>([
     'Moderator Satyajit Mishra approved developer portfolio badge validation for usr_12',

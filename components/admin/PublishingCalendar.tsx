@@ -19,7 +19,7 @@ import { executeScheduledPublishAction } from '@/lib/actions/cms';
 interface CalendarProject {
   id: string;
   title: string;
-  status: 'draft' | 'published' | 'scheduled' | 'archived';
+  status: 'DRAFT' | 'PUBLISHED' | 'SCHEDULED' | 'ARCHIVED';
   scheduledAt: string | null;
   publishedAt: string | null;
   createdAt: string;
@@ -239,10 +239,10 @@ export default function PublishingCalendar({ initialProjects }: PublishingCalend
                 <div className="flex-1 mt-1.5 space-y-1 overflow-y-auto max-h-[60px] custom-scrollbar pr-0.5">
                   {dayProjects.map(proj => {
                     const statusColors = {
-                      scheduled: 'bg-accent-cyan/10 border-accent-cyan/20 text-accent-cyan hover:bg-accent-cyan/15',
-                      published: 'bg-accent-emerald/10 border-accent-emerald/20 text-accent-emerald hover:bg-accent-emerald/15',
-                      draft: 'bg-graphite/10 border-graphite/20 text-stone hover:bg-graphite/15',
-                      archived: 'bg-accent-pink/10 border-accent-pink/20 text-accent-pink hover:bg-accent-pink/15'
+                      SCHEDULED: 'bg-accent-cyan/10 border-accent-cyan/20 text-accent-cyan hover:bg-accent-cyan/15',
+                      PUBLISHED: 'bg-accent-emerald/10 border-accent-emerald/20 text-accent-emerald hover:bg-accent-emerald/15',
+                      DRAFT: 'bg-graphite/10 border-graphite/20 text-stone hover:bg-graphite/15',
+                      ARCHIVED: 'bg-accent-pink/10 border-accent-pink/20 text-accent-pink hover:bg-accent-pink/15'
                     };
 
                     return (
@@ -251,10 +251,10 @@ export default function PublishingCalendar({ initialProjects }: PublishingCalend
                         href={`/admin/projects/edit/${proj.id}`}
                         className={`block px-1.5 py-0.5 rounded border text-[9px] truncate font-medium transition-all ${statusColors[proj.status]}`}
                       >
-                        {proj.status === 'scheduled' && <Clock className="w-2.5 h-2.5 inline mr-1 shrink-0" />}
-                        {proj.status === 'published' && <CheckCircle className="w-2.5 h-2.5 inline mr-1 shrink-0" />}
-                        {proj.status === 'draft' && <FileText className="w-2.5 h-2.5 inline mr-1 shrink-0" />}
-                        {proj.status === 'archived' && <Archive className="w-2.5 h-2.5 inline mr-1 shrink-0" />}
+                        {proj.status === 'SCHEDULED' && <Clock className="w-2.5 h-2.5 inline mr-1 shrink-0" />}
+                        {proj.status === 'PUBLISHED' && <CheckCircle className="w-2.5 h-2.5 inline mr-1 shrink-0" />}
+                        {proj.status === 'DRAFT' && <FileText className="w-2.5 h-2.5 inline mr-1 shrink-0" />}
+                        {proj.status === 'ARCHIVED' && <Archive className="w-2.5 h-2.5 inline mr-1 shrink-0" />}
                         <span>{proj.title}</span>
                       </Link>
                     );

@@ -386,7 +386,7 @@ export async function generateAiDraftFromCommitsAction(
       slug,
       description: `Draft update generated for ${platform}`,
       content: result.content,
-      status: 'draft',
+      status: 'DRAFT',
       type: platform === 'release_notes' ? 'release_notes' : 'update',
       authorId: userId,
       projectId 

@@ -278,7 +278,7 @@ export async function generateMultiPlatformDraftsAction(repositoryId: string, cu
         title: output.title || `${platform.toUpperCase()} Update`,
         platform,
         content: output.content,
-        status: 'draft',
+        status: 'DRAFT',
         aiConfidence: output.aiConfidence,
         qualityScore: output.qualityScore,
         readabilityScore: output.readabilityScore,
@@ -333,7 +333,7 @@ export async function publishDraftAction(draftId: string) {
 
     if (res.success) {
       await automationDb.updateDraft(draftId, {
-        status: 'published',
+        status: 'PUBLISHED',
         publishedAt: new Date(),
         publishUrl: res.url,
         publishError: null,

@@ -217,7 +217,7 @@ const seedPublicSandboxDb = () => {
     status: 'active',
     startDate: '2026-01-01',
     completionDate: null,
-    visibility: 'public',
+    visibility: 'PUBLIC',
     tagsList: ['nextjs', 'react', 'education', 'developer-platform'],
     githubUrl: 'https://github.com/satyajitmishra-dev/Study-Material',
     githubMetadata: JSON.stringify({
@@ -397,7 +397,7 @@ const seedPublicSandboxDb = () => {
     fileUrl: '/uploads/notes/os-notes.pdf',
     fileType: 'PDF',
     fileSize: 2457600,
-    visibility: 'public',
+    visibility: 'PUBLIC',
     technology: 'Systems',
     category: 'Computer Science',
     tags: ['OS', 'Paging', 'CPU Scheduling'],
@@ -425,7 +425,7 @@ const seedPublicSandboxDb = () => {
     category: 'React',
     tags: ['nextjs', 'authentication', 'security'],
     isQuestion: false,
-    visibility: 'public',
+    visibility: 'PUBLIC',
     authorId: 'sandbox-admin-id',
     createdAt: new Date(now.getTime() - 3600000 * 36),
     updatedAt: new Date(now.getTime() - 3600000 * 36),
@@ -443,7 +443,7 @@ const seedPublicSandboxDb = () => {
     tags: ['nextjs', 'jwt', 'middleware'],
     isQuestion: true,
     acceptedAnswerId: 'ans_jwt_resolved',
-    visibility: 'public',
+    visibility: 'PUBLIC',
     authorId: 'sandbox-user-id',
     createdAt: new Date(now.getTime() - 3600000 * 24),
     updatedAt: new Date(now.getTime() - 3600000 * 24),
@@ -471,7 +471,7 @@ const seedPublicSandboxDb = () => {
     category: 'React',
     technology: 'React',
     durationDays: 7,
-    visibility: 'public',
+    visibility: 'PUBLIC',
     pollType: 'single',
     isAnonymous: false,
     isClosed: false,
@@ -700,7 +700,7 @@ class PublicDatabase {
           category: 'React',
           tags: ['Next.js', 'React Compiler', 'PPR'],
           language: 'en',
-          visibility: 'public',
+          visibility: 'PUBLIC',
           thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=400&q=80',
           coverImage: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80',
           content: '',
@@ -713,7 +713,7 @@ class PublicDatabase {
           schemaJson: '',
           seoScore: 92,
           views: 1240,
-          status: 'published',
+          status: 'PUBLISHED',
           publishedAt: new Date(),
           scheduledAt: null,
           versionNote: '',
@@ -776,8 +776,8 @@ class PublicDatabase {
 
     if (prisma) {
       const where: any = {
-        status: 'published',
-        visibility: { in: ['public', 'unlisted', 'members', 'premium'] }
+        status: 'PUBLISHED',
+        visibility: { in: ['PUBLIC', 'UNLISTED'] }
       };
 
       if (params.search) {
@@ -857,7 +857,7 @@ class PublicDatabase {
           category: 'React',
           tags: ['Next.js', 'React Compiler', 'PPR'],
           language: 'en',
-          visibility: 'public',
+          visibility: 'PUBLIC',
           thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=400&q=80',
           coverImage: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80',
           content: 'Partial Prerendering (PPR) is a layout-first prerendering model...',
@@ -870,7 +870,7 @@ class PublicDatabase {
           schemaJson: null,
           seoScore: 92,
           views: 1240,
-          status: 'published',
+          status: 'PUBLISHED',
           publishedAt: new Date(Date.now() - 3600000 * 24),
           scheduledAt: null,
           versionNote: 'Initial release',
@@ -922,8 +922,8 @@ class PublicDatabase {
       return prisma.cmsProject.findFirst({
         where: {
           slug,
-          status: 'published',
-          visibility: { in: ['public', 'unlisted', 'members', 'premium'] }
+          status: 'PUBLISHED',
+          visibility: { in: ['PUBLIC', 'UNLISTED'] }
         },
         include: {
           author: {
@@ -1099,8 +1099,8 @@ class PublicDatabase {
   async getDeveloperProfile(username: string, currentUserId?: string): Promise<any | null> {
     const prisma = this.prisma;
     if (prisma) {
-      const user = await prisma.user.findUnique({
-        where: { username },
+      const user = await prisma.user.findFirst({
+        where: { username: { equals: username, mode: 'insensitive' } },
         include: {
           authorProfile: true,
         }
@@ -1114,7 +1114,7 @@ class PublicDatabase {
 
       // Fetch projects owned by user (via organization ownerId)
       let projects = await prisma.project.findMany({
-        where: { organization: { ownerId: user.id }, visibility: 'public' },
+        where: { organization: { ownerId: user.id }, visibility: { in: ['PUBLIC', 'public'] } },
         include: {
           integrations: true,
           roadmaps: { include: { tasks: true } },
@@ -1124,7 +1124,7 @@ class PublicDatabase {
 
       // Fetch published CmsProjects written by user
       const posts = await prisma.cmsProject.findMany({
-        where: { authorId: user.id, status: 'published' },
+        where: { authorId: user.id, status: 'PUBLISHED' },
         orderBy: { publishedAt: 'desc' },
         include: { categoryRef: true }
       });
@@ -1256,7 +1256,7 @@ class PublicDatabase {
         category: 'React',
         tags: ['Next.js', 'React Compiler', 'PPR'],
         views: 1240,
-        status: 'published',
+        status: 'PUBLISHED',
         publishedAt: new Date(Date.now() - 3600000 * 24),
         authorId: memoryUser.id
       }
@@ -1317,6 +1317,31 @@ class PublicDatabase {
     return inMemoryCmsRedirects.find(r => r.sourcePath === sourcePath) || null;
   }
 
+  async getUsernameHistory(oldUsername: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.usernameHistory.findFirst({
+        where: { oldUsername: { equals: oldUsername, mode: 'insensitive' } },
+        include: { user: true }
+      });
+    }
+    return inMemoryUsernameHistories.find(h => h.oldUsername.toLowerCase() === oldUsername.toLowerCase()) || null;
+  }
+
+  async getUserById(id: string): Promise<any | null> {
+    const prisma = this.prisma;
+    if (prisma) {
+      return prisma.user.findUnique({
+        where: { id }
+      });
+    }
+    const memoryUser = [
+      { id: 'sandbox-admin-id', name: 'Sandbox Administrator', username: 'satyajit', email: 'admin@gmail.com', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80', profileVisibility: 'public', hiddenFields: [] },
+      { id: 'sandbox-user-id', name: 'Sandbox Developer', username: 'developer', email: 'developer@gmail.com', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80', profileVisibility: 'public', hiddenFields: [] }
+    ].find(u => u.id === id);
+    return memoryUser || null;
+  }
+
   async createCmsRedirect(sourcePath: string, targetPath: string): Promise<any> {
     const prisma = this.prisma;
     const now = new Date();
@@ -1341,7 +1366,7 @@ class PublicDatabase {
     const prisma = this.prisma;
     if (prisma) {
       return prisma.project.findMany({
-        where: { visibility: 'public' },
+        where: { visibility: { in: ['PUBLIC', 'public'] } },
         include: {
           integrations: true,
           roadmaps: { include: { tasks: true } },
@@ -1376,7 +1401,7 @@ class PublicDatabase {
           },
           timelines: { orderBy: { date: 'desc' } },
           cmsProjects: {
-            where: { status: 'published' },
+            where: { status: 'PUBLISHED' },
             orderBy: { publishedAt: 'desc' },
             include: { categoryRef: true }
           },
@@ -1411,7 +1436,7 @@ class PublicDatabase {
         category: 'React',
         tags: ['Next.js', 'React Compiler', 'PPR'],
         views: 1240,
-        status: 'published',
+        status: 'PUBLISHED',
         publishedAt: new Date(Date.now() - 3600000 * 24),
         authorId: 'sandbox-admin-id',
         projectId: project.id
@@ -1449,7 +1474,7 @@ class PublicDatabase {
     const prisma = this.prisma;
     if (prisma) {
       const posts = await prisma.cmsProject.findMany({
-        where: { authorId: userId, status: 'published' },
+        where: { authorId: userId, status: 'PUBLISHED' },
         orderBy: { publishedAt: 'desc' }
       });
       const timelines = await prisma.projectTimeline.findMany({
@@ -2067,7 +2092,7 @@ class PublicDatabase {
       if (typeFilter === 'all' || typeFilter === 'blog' || typeFilter === 'articles' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you' || typeFilter === 'following' || typeFilter === 'open_source') {
         promises.push(
           prisma.cmsProject.findMany({
-            where: { status: 'published', type: 'article' },
+            where: { status: 'PUBLISHED', type: 'article' },
             include: { author: true, comments: true, reactions: true },
             take: 100
           }).then(res => res.map(x => ({ 
@@ -2086,7 +2111,7 @@ class PublicDatabase {
       if (typeFilter === 'all' || typeFilter === 'project' || typeFilter === 'projects' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you' || typeFilter === 'following' || typeFilter === 'open_source') {
         promises.push(
           prisma.project.findMany({
-            where: { visibility: 'public' },
+            where: { visibility: { in: ['PUBLIC', 'public'] } },
             include: { contributors: true, comments: true },
             take: 100
           }).then(res => res.map(x => ({ 
@@ -2106,7 +2131,7 @@ class PublicDatabase {
       if (typeFilter === 'all' || typeFilter === 'note' || typeFilter === 'study_notes' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
         promises.push(
           prisma.userNote.findMany({
-            where: { visibility: 'public' },
+            where: { visibility: { in: ['PUBLIC', 'public'] } },
             include: { author: true },
             take: 100
           }).then((res: any[]) => res.map((x: any) => ({ 
@@ -2139,7 +2164,7 @@ class PublicDatabase {
       if (typeFilter === 'all' || typeFilter === 'discussion' || typeFilter === 'discussions' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
         promises.push(
           prisma.discussion.findMany({
-            where: { visibility: 'public', isQuestion: false },
+            where: { visibility: { in: ['PUBLIC', 'public'] }, isQuestion: false },
             include: { author: true, answers: true },
             take: 100
           }).then((res: any[]) => res.map((x: any) => ({ 
@@ -2158,7 +2183,7 @@ class PublicDatabase {
       if (typeFilter === 'all' || typeFilter === 'question' || typeFilter === 'discussions' || typeFilter === 'latest' || typeFilter === 'trending' || typeFilter === 'for_you') {
         promises.push(
           prisma.discussion.findMany({
-            where: { visibility: 'public', isQuestion: true },
+            where: { visibility: { in: ['PUBLIC', 'public'] }, isQuestion: true },
             include: { author: true, answers: true },
             take: 100
           }).then((res: any[]) => res.map((x: any) => ({ 
@@ -2177,7 +2202,7 @@ class PublicDatabase {
       if (typeFilter === 'all' || typeFilter === 'poll' || typeFilter === 'discussions' || typeFilter === 'latest' || typeFilter === 'trending') {
         promises.push(
           prisma.poll.findMany({
-            where: { visibility: 'public' },
+            where: { visibility: { in: ['PUBLIC', 'public'] } },
             include: { options: true, author: true },
             take: 100
           }).then((res: any[]) => res.map((x: any) => ({ 

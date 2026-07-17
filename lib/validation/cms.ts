@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ContentStatus, Visibility } from '@prisma/client';
 
 export const CmsProjectSchema = z.object({
   title: z.string().min(2, 'Title must be at least 2 characters').max(100, 'Title is too long'),
@@ -7,7 +8,7 @@ export const CmsProjectSchema = z.object({
   category: z.string().min(1, 'Category is required').optional().nullable(),
   tags: z.array(z.string()),
   language: z.string(),
-  visibility: z.enum(['public', 'private', 'unlisted', 'password', 'members', 'premium']),
+  visibility: z.nativeEnum(Visibility),
   password: z.string().optional().nullable(),
   thumbnail: z.string().or(z.literal('')).optional().nullable(),
   coverImage: z.string().or(z.literal('')).optional().nullable(),
@@ -22,7 +23,7 @@ export const CmsProjectSchema = z.object({
   seoScore: z.number().int().min(0).max(100),
   qualityScore: z.number().int().min(0).max(100).optional(),
   postHash: z.string().optional().nullable(),
-  status: z.enum(['draft', 'review', 'approved', 'scheduled', 'published', 'archived']),
+  status: z.nativeEnum(ContentStatus),
   scheduledAt: z.string().optional().nullable(),
   versionNote: z.string().max(200, 'Version note is too long').optional().nullable(),
   version: z.number().int().optional(),

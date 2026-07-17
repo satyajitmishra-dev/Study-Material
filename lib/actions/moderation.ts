@@ -21,7 +21,7 @@ const globalForReports = globalThis as unknown as {
   reportsStore: ContentReport[] | undefined;
 };
 
-export const reportsStore = globalForReports.reportsStore ?? [
+const reportsStore = globalForReports.reportsStore ?? [
   {
     id: 'rep_1',
     contentId: 'proj_sandbox_1',
@@ -149,21 +149,21 @@ export async function moderateContentAction(
     if (prisma) {
       if (contentType === 'project') {
         if (actionType === 'hide') {
-          await prisma.cmsProject.update({ where: { id: contentId }, data: { status: 'archived' } });
+          await prisma.cmsProject.update({ where: { id: contentId }, data: { status: 'ARCHIVED' } });
         } else if (actionType === 'restore') {
-          await prisma.cmsProject.update({ where: { id: contentId }, data: { status: 'published' } });
+          await prisma.cmsProject.update({ where: { id: contentId }, data: { status: 'PUBLISHED' } });
         }
       } else if (contentType === 'note') {
         if (actionType === 'hide') {
-          await prisma.userNote.update({ where: { id: contentId }, data: { visibility: 'private' } });
+          await prisma.userNote.update({ where: { id: contentId }, data: { visibility: 'PRIVATE' } });
         } else if (actionType === 'restore') {
-          await prisma.userNote.update({ where: { id: contentId }, data: { visibility: 'public' } });
+          await prisma.userNote.update({ where: { id: contentId }, data: { visibility: 'PUBLIC' } });
         }
       } else if (contentType === 'discussion') {
         if (actionType === 'hide') {
-          await prisma.discussion.update({ where: { id: contentId }, data: { visibility: 'private' } });
+          await prisma.discussion.update({ where: { id: contentId }, data: { visibility: 'PRIVATE' } });
         } else if (actionType === 'restore') {
-          await prisma.discussion.update({ where: { id: contentId }, data: { visibility: 'public' } });
+          await prisma.discussion.update({ where: { id: contentId }, data: { visibility: 'PUBLIC' } });
         }
       }
     }
@@ -360,8 +360,8 @@ export async function getAllContentAction(contentType: 'project' | 'note' | 'dis
     return { 
       success: true, 
       items: [
-        { id: 'proj_sandbox_1', title: 'StudyMaterial Core App', status: 'published', views: 320, author: { name: 'Satyajit', email: 'satya@domain.com' }, createdAt: new Date() },
-        { id: 'note_sandbox_1', title: 'React 19 Compiler Spec', visibility: 'public', views: 85, author: { name: 'Satyajit', email: 'satya@domain.com' }, createdAt: new Date() }
+        { id: 'proj_sandbox_1', title: 'StudyMaterial Core App', status: 'PUBLISHED', views: 320, author: { name: 'Satyajit', email: 'satya@domain.com' }, createdAt: new Date() },
+        { id: 'note_sandbox_1', title: 'React 19 Compiler Spec', visibility: 'PUBLIC', views: 85, author: { name: 'Satyajit', email: 'satya@domain.com' }, createdAt: new Date() }
       ] 
     };
   } catch (err: any) {

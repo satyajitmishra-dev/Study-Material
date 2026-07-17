@@ -108,9 +108,7 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
   // 1. Initializing TipTap Editor
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        codeBlock: false, // Disabling default code block in favor of premium
-      }),
+      StarterKit,
       Underline,
       Link.configure({
         openOnClick: false,
@@ -283,6 +281,8 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
       editor.chain().focus().toggleBlockquote().run();
     } else if (type === 'hr') {
       editor.chain().focus().setHorizontalRule().run();
+    } else if (type === 'codeblock') {
+      editor.chain().focus().toggleCodeBlock().run();
     } else {
       // Trigger modal configuration
       setModalInput1('');

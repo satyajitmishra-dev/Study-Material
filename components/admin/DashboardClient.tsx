@@ -93,12 +93,12 @@ export default function DashboardClient({ initialData, role, userName }: Dashboa
     responseTime: 42,
   });
 
-  // Calculate Creator metrics deterministically based on views
+  // Read Creator metrics dynamically from database aggregates passed in initialData
   const totalViews = realtimeViews;
-  const likesCount = Math.floor(totalViews * 0.12);
-  const commentsCount = Math.floor(totalViews * 0.04);
-  const bookmarksCount = Math.floor(totalViews * 0.08);
-  const followersCount = Math.max(12, Math.floor(totalViews * 0.02) + 5);
+  const likesCount = (initialData as any).likesCount ?? 0;
+  const commentsCount = (initialData as any).commentsCount ?? 0;
+  const bookmarksCount = (initialData as any).bookmarksCount ?? 0;
+  const followersCount = (initialData as any).followersCount ?? 0;
 
   // Load layout from localStorage
   useEffect(() => {
@@ -562,7 +562,7 @@ export default function DashboardClient({ initialData, role, userName }: Dashboa
                               <td className="py-3 text-stone">{p.category || 'Uncategorized'}</td>
                               <td className="py-3 text-center">
                                 <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                                  p.status === 'published' 
+                                  p.status === 'PUBLISHED' 
                                     ? 'bg-accent-emerald/10 text-accent-emerald' 
                                     : 'bg-stone/10 text-stone'
                                 }`}>

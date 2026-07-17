@@ -32,10 +32,10 @@ export default function UsersManagementPage() {
       if (res.success) {
         setUsers(res.users || []);
       } else {
-        setError(res.error || 'Failed to fetch user directory.');
+        setError(res.error || 'Failed to load user directory. Reason: Database is unavailable.');
       }
-    } catch (err) {
-      setError('A network error occurred.');
+    } catch (err: any) {
+      setError(`Failed to load user directory. Reason: ${err.message || 'Database network timeout.'}`);
     } finally {
       setLoading(false);
     }
@@ -55,8 +55,8 @@ export default function UsersManagementPage() {
       } else {
         alert(res.error || 'Failed to apply moderation action.');
       }
-    } catch (err) {
-      alert('A network error occurred.');
+    } catch (err: any) {
+      alert(`Moderation request failed. Reason: ${err.message || 'Network Timeout.'}`);
     } finally {
       setModifyingId(null);
     }
@@ -140,9 +140,22 @@ export default function UsersManagementPage() {
         </div>
 
         {error && (
-          <div className="p-3 bg-accent-pink/10 border border-accent-pink/20 text-accent-pink text-[12px] rounded-xl flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4" />
-            <span>{error}</span>
+          <div className="space-y-4">
+            <div className="p-4 bg-accent-pink/15 border border-accent-pink/20 text-accent-pink text-[12.5px] rounded-xl flex items-start gap-3 text-left">
+              <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-bold">Error Loading Directory</span>
+                <p className="font-light text-stone/80 text-[11px] leading-relaxed">{error}</p>
+              </div>
+            </div>
+            <Button 
+              variant="secondary" 
+              onClick={fetchUsers} 
+              className="text-[11px] py-1.5 px-3 flex items-center gap-1.5 mx-auto bg-white/5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Retry Connection</span>
+            </Button>
           </div>
         )}
 

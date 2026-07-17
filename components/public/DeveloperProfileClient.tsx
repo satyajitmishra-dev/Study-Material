@@ -42,6 +42,7 @@ interface ClientProps {
   initialFollowers: any[];
   initialFollowing: any[];
   initialBookmarks: any[];
+  sessionUser: any | null;
 }
 
 export default function DeveloperProfileClient({
@@ -51,12 +52,13 @@ export default function DeveloperProfileClient({
   initialPosts,
   initialFollowers,
   initialFollowing,
-  initialBookmarks
+  initialBookmarks,
+  sessionUser
 }: ClientProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [followers, setFollowers] = useState(initialFollowers);
   const [isFollowing, setIsFollowing] = useState(
-    initialFollowers.some(f => f.userId === 'sandbox-user-id') // Mocked for sandbox, update for real session user
+    sessionUser ? initialFollowers.some(f => f.userId === sessionUser.id) : false
   );
   const [followLoading, setFollowLoading] = useState(false);
 
@@ -81,17 +83,21 @@ export default function DeveloperProfileClient({
   const interests = profile.interests || ['Web Performance', 'AI Agents'];
 
   // Aggregate stats
-  const totalViews = initialPosts.reduce((sum, p) => sum + (p.views || 0), 0) + (initialProjects.length * 342);
-  const totalLikes = initialPosts.reduce((sum, p) => sum + (p._count?.reactions || 0), 0) + (initialProjects.length * 15);
+  const totalViews = initialPosts.reduce((sum, p) => sum + (p.views || 0), 0);
+  const totalLikes = initialPosts.reduce((sum, p) => sum + (p._count?.reactions || p.reactions?.length || 0), 0);
 
   const handleFollow = async () => {
+    if (!sessionUser) {
+      alert('You must sign in to follow developers.');
+      return;
+    }
     setFollowLoading(true);
     const prevFollowed = isFollowing;
     setIsFollowing(!prevFollowed);
     if (!prevFollowed) {
-      setFollowers([...followers, { userId: 'sandbox-user-id', user: { name: 'Sandbox User' } }]);
+      setFollowers([...followers, { userId: sessionUser.id, user: { name: sessionUser.name || 'Developer' } }]);
     } else {
-      setFollowers(followers.filter(f => f.userId !== 'sandbox-user-id'));
+      setFollowers(followers.filter(f => f.userId !== sessionUser.id));
     }
 
     try {

@@ -162,7 +162,7 @@ export default function ProjectsClient({
       robots: project.robots,
       schemaJson: project.schemaJson,
       seoScore: project.seoScore,
-      status: 'draft',
+      status: 'DRAFT',
       versionNote: `Duplicated from ${project.title}`,
     });
 
@@ -438,14 +438,14 @@ export default function ProjectsClient({
   const selectedCount = Object.keys(rowSelection).filter(k => rowSelection[k]).length;
 
   // Custom Saved view triggers
-  const setSavedView = (view: 'all' | 'published' | 'drafts' | 'high_seo') => {
+  const setSavedView = (view: 'all' | 'PUBLISHED' | 'DRAFTS' | 'high_seo') => {
     if (view === 'all') {
       setStatusFilter('');
       setCategoryFilter('');
-    } else if (view === 'published') {
-      setStatusFilter('published');
-    } else if (view === 'drafts') {
-      setStatusFilter('draft');
+    } else if (view === 'PUBLISHED') {
+      setStatusFilter('PUBLISHED');
+    } else if (view === 'DRAFTS') {
+      setStatusFilter('DRAFT');
     } else if (view === 'high_seo') {
       setStatusFilter('');
       // Trigger sort by seo
@@ -582,9 +582,9 @@ export default function ProjectsClient({
           <span className="font-semibold uppercase tracking-wider">Quick Views:</span>
           <button onClick={() => setSavedView('all')} className="hover:text-warm-white transition-colors cursor-pointer">All Projects</button>
           <span className="text-white/10">•</span>
-          <button onClick={() => setSavedView('published')} className="hover:text-warm-white transition-colors cursor-pointer">Active Published</button>
+          <button onClick={() => setSavedView('PUBLISHED')} className="hover:text-warm-white transition-colors cursor-pointer">Active Published</button>
           <span className="text-white/10">•</span>
-          <button onClick={() => setSavedView('drafts')} className="hover:text-warm-white transition-colors cursor-pointer">Draft Items</button>
+          <button onClick={() => setSavedView('DRAFTS')} className="hover:text-warm-white transition-colors cursor-pointer">Draft Items</button>
           <span className="text-white/10">•</span>
           <button onClick={() => setSavedView('high_seo')} className="hover:text-warm-white transition-colors cursor-pointer">Top SEO Scores</button>
         </div>
@@ -714,7 +714,7 @@ export default function ProjectsClient({
                       </div>
                     )}
                     <span className={`absolute top-3 right-3 text-[9px] px-2 py-0.5 border rounded-full font-bold uppercase tracking-wider bg-onyx/80 backdrop-blur-sm
-                      ${project.status === 'published' 
+                      ${project.status === 'PUBLISHED' 
                         ? 'border-accent-emerald/20 text-accent-emerald'
                         : 'border-white/10 text-stone'
                       }
@@ -787,7 +787,7 @@ export default function ProjectsClient({
               <div key={proj.id} className="flex items-center justify-between p-3.5 hover:bg-white/[0.01] transition-colors text-[12px]">
                 <div className="flex items-center gap-6 min-w-0">
                   <span className={`w-2 h-2 rounded-full shrink-0
-                    ${proj.status === 'published' ? 'bg-accent-emerald' : 'bg-stone'}
+                    ${proj.status === 'PUBLISHED' ? 'bg-accent-emerald' : 'bg-stone'}
                   `} />
                   <div className="truncate space-y-0.5">
                     <span className="font-bold text-warm-white">{proj.title}</span>

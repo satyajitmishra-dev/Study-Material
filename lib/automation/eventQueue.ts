@@ -279,7 +279,7 @@ export async function processScheduledPublishing(): Promise<{ publishedCount: nu
       if (res.success) {
         publishedCount++;
         await automationDb.updateDraft(draft.id, {
-          status: 'published',
+          status: 'PUBLISHED',
           publishedAt: new Date(),
           publishUrl: res.url,
           publishError: null,

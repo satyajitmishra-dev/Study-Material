@@ -199,7 +199,7 @@ export async function getSeoHealthReportAction() {
     let posts: any[] = [];
     if (prisma) {
       posts = await prisma.cmsProject.findMany({
-        where: { status: 'published' },
+        where: { status: 'PUBLISHED' },
         include: {
           author: { include: { authorProfile: true } },
           categoryRef: true,

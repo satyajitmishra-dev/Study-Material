@@ -67,7 +67,7 @@ const seedSandboxDb = () => {
     category: 'React',
     tags: ['Next.js', 'React Compiler', 'PPR'],
     language: 'en',
-    visibility: 'public',
+    visibility: 'PUBLIC',
     thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=400&q=80',
     coverImage: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80',
     content: JSON.stringify({
@@ -88,7 +88,8 @@ const seedSandboxDb = () => {
     qualityScore: 85,
     postHash: null,
     views: 1240,
-    status: 'published',
+    status: 'PUBLISHED',
+    featureLevel: 'NONE',
     publishedAt: now,
     scheduledAt: null,
     versionNote: 'Initial publication',
@@ -114,7 +115,7 @@ const seedSandboxDb = () => {
     category: 'CSS',
     tags: ['Framer Motion', 'Physics', 'Web Design'],
     language: 'en',
-    visibility: 'public',
+    visibility: 'PUBLIC',
     thumbnail: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=400&q=80',
     coverImage: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80',
     content: JSON.stringify({
@@ -135,7 +136,8 @@ const seedSandboxDb = () => {
     qualityScore: 70,
     postHash: null,
     views: 450,
-    status: 'draft',
+    status: 'DRAFT',
+    featureLevel: 'NONE',
     publishedAt: null,
     scheduledAt: null,
     versionNote: 'Draft notes',
@@ -382,7 +384,7 @@ class CmsDatabase {
         category: null,
         tags: [],
         language: 'en',
-        visibility: 'public',
+        visibility: 'PUBLIC',
         password: null,
         thumbnail: null,
         coverImage: null,
@@ -407,7 +409,8 @@ class CmsDatabase {
         qualityScore: data.qualityScore ?? 0,
         postHash: data.postHash ?? null,
         projectId: data.projectId ?? null,
-        status: data.status || 'draft',
+        status: data.status || 'DRAFT',
+        featureLevel: data.featureLevel || 'NONE',
         type,
         views: 0,
         createdAt: data.createdAt || now,
@@ -449,7 +452,7 @@ class CmsDatabase {
       if (softDelete) {
         return prisma.cmsProject.update({
           where: { id },
-          data: { status: 'archived' }
+          data: { status: 'ARCHIVED' }
         });
       } else {
         return prisma.cmsProject.delete({ where: { id } });
@@ -459,7 +462,7 @@ class CmsDatabase {
       if (idx === -1) throw new Error('Project not found');
       const target = inMemoryProjects[idx];
       if (softDelete) {
-        target.status = 'archived';
+        target.status = 'ARCHIVED';
         target.updatedAt = new Date();
       } else {
         inMemoryProjects.splice(idx, 1);

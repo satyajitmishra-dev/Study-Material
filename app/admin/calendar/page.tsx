@@ -12,7 +12,7 @@ export default async function CalendarPage() {
   const serializedProjects = projects.map(p => ({
     id: p.id,
     title: p.title,
-    status: p.status as 'draft' | 'published' | 'scheduled' | 'archived',
+    status: p.status as 'DRAFT' | 'PUBLISHED' | 'SCHEDULED' | 'ARCHIVED',
     scheduledAt: p.scheduledAt ? p.scheduledAt.toISOString() : null,
     publishedAt: p.publishedAt ? p.publishedAt.toISOString() : null,
     createdAt: p.createdAt.toISOString()

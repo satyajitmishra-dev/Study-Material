@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { cmsDb } from '@/lib/database/cmsDb';
 import DashboardClient from '@/components/admin/DashboardClient';
 import { getActiveProject } from '@/lib/actions/projectContext';
+import { getPrisma } from '@/lib/database/dbClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,9 +27,30 @@ export default async function StudioDashboardPage() {
   const projects = allProjects.filter(p => p.authorId === userId);
   const auditLogs = allAuditLogs.filter(l => l.userId === userId);
 
-  const publishedCount = projects.filter(p => p.status === 'published').length;
-  const draftsCount = projects.filter(p => p.status === 'draft').length;
+  const publishedCount = projects.filter(p => p.status === 'PUBLISHED').length;
+  const draftsCount = projects.filter(p => p.status === 'DRAFT').length;
   const totalViews = projects.reduce((sum, p) => sum + p.views, 0);
+
+  const prisma = getPrisma();
+  let likesCount = 0;
+  let commentsCount = 0;
+  let bookmarksCount = 0;
+  let followersCount = 0;
+
+  if (prisma) {
+    likesCount = await prisma.reaction.count({
+      where: { project: { authorId: userId } }
+    });
+    commentsCount = await prisma.comment.count({
+      where: { project: { authorId: userId } }
+    });
+    bookmarksCount = await prisma.bookmark.count({
+      where: { project: { authorId: userId } }
+    });
+    followersCount = await prisma.follow.count({
+      where: { targetType: 'DEVELOPER', targetId: userId }
+    });
+  }
 
   const initialData = {
     totalProjects: projects.length,
@@ -36,6 +58,10 @@ export default async function StudioDashboardPage() {
     draftsCount,
     totalViews,
     mediaCount,
+    likesCount,
+    commentsCount,
+    bookmarksCount,
+    followersCount,
     recentProjects: projects.slice(0, 10).map(p => ({
       id: p.id,
       title: p.title,

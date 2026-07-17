@@ -91,10 +91,9 @@ interface FloatingDockProps {
 export default function FloatingDock({ onSearchClick, onCreateClick }: FloatingDockProps) {
   const mouseX = useMotionValue(Infinity);
 
-  const workspaces = [
+  const workspaces: { title: string; icon: any; href: string; onClick?: () => void }[] = [
     { title: 'Home Dashboard', icon: Home, href: '/' },
     { title: 'Explore & Search', icon: Compass, href: '/search' },
-    { title: 'Create Menu', icon: Plus, href: '#', onClick: onCreateClick },
     { title: 'Community Hub', icon: Users, href: '/community' },
     { title: 'Workspace (Second Brain)', icon: FolderOpen, href: '/workspace' },
     { title: 'Profile & Settings', icon: User, href: '/profile' }
@@ -120,7 +119,7 @@ export default function FloatingDock({ onSearchClick, onCreateClick }: FloatingD
               href={item.href}
               onClick={item.onClick}
             />
-            {idx === 2 && <div className="w-[1px] h-8 bg-white/10 mx-1 self-center rounded" />}
+            {idx === 1 && <div className="w-[1px] h-8 bg-white/10 mx-1 self-center rounded" />}
           </div>
         ))}
       </motion.div>
@@ -148,7 +147,7 @@ export default function FloatingDock({ onSearchClick, onCreateClick }: FloatingD
               ) : (
                 <Link href={item.href}>{Content}</Link>
               )}
-              {idx === 2 && <div className="w-[1px] h-6 bg-white/10 mx-1.5 self-center rounded" />}
+              {idx === 1 && <div className="w-[1px] h-6 bg-white/10 mx-1.5 self-center rounded" />}
             </div>
           );
         })}

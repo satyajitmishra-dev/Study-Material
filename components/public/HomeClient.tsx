@@ -199,7 +199,7 @@ export default function HomeClient({
     switch (item.feedType) {
       case 'blog':
         return (
-          <Card key={item.id} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-cyan/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
+          <Card key={`${item.feedType}-${item.id}`} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-cyan/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan">
@@ -237,7 +237,7 @@ export default function HomeClient({
 
       case 'project':
         return (
-          <Card key={item.id} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-violet/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
+          <Card key={`${item.feedType}-${item.id}`} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-violet/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-accent-violet/10 border border-accent-violet/20 text-accent-violet">
@@ -299,7 +299,7 @@ export default function HomeClient({
 
       case 'roadmap':
         return (
-          <Card key={item.id} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-orange/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
+          <Card key={`${item.feedType}-${item.id}`} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-orange/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
             <div className="space-y-3">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-accent-orange/10 border border-accent-orange/20 text-accent-orange">
                 <Compass className="w-3 h-3" />
@@ -323,7 +323,7 @@ export default function HomeClient({
 
       case 'note':
         return (
-          <Card key={item.id} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-pink/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
+          <Card key={`${item.feedType}-${item.id}`} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-pink/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
             <div className="space-y-3">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-accent-pink/10 border border-accent-pink/20 text-accent-pink">
                 <BookMarked className="w-3 h-3" />
@@ -349,7 +349,7 @@ export default function HomeClient({
       case 'question':
         const isQuestion = item.feedType === 'question';
         return (
-          <Card key={item.id} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-violet/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
+          <Card key={`${item.feedType}-${item.id}`} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-violet/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
             <div className="space-y-3">
               <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
                 isQuestion 
@@ -375,7 +375,7 @@ export default function HomeClient({
 
       case 'poll':
         return (
-          <Card key={item.id} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-orange/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
+          <Card key={`${item.feedType}-${item.id}`} className="p-5 border border-white/5 bg-charcoal/20 hover:border-accent-orange/30 transition-all flex flex-col justify-between h-full group relative overflow-hidden">
             <div className="space-y-3">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-accent-orange/10 border border-accent-orange/20 text-accent-orange">
                 <Vote className="w-3 h-3" />

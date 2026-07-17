@@ -90,7 +90,7 @@ export async function saveProjectAction(
     }
 
     // Rate limiting: 3 posts per day for new users (reputation < 100)
-    if (prisma && inputData.status === 'published') {
+    if (prisma && inputData.status === 'PUBLISHED') {
       const dbUser = await prisma.user.findUnique({ where: { id: actor.userId } });
       const userRep = dbUser?.reputation || 0;
       const userRole = dbUser?.role || 'user';
@@ -100,7 +100,7 @@ export async function saveProjectAction(
         const postCount = await prisma.cmsProject.count({
           where: {
             authorId: actor.userId,
-            status: 'published',
+            status: 'PUBLISHED',
             publishedAt: { gte: oneDayAgo }
           }
         });
@@ -152,7 +152,7 @@ export async function saveProjectAction(
       let targetStatus = inputData.status;
       let publishedAt = original.publishedAt;
 
-      if (targetStatus === 'published' && original.status !== 'published') {
+      if (targetStatus === 'PUBLISHED' && original.status !== 'PUBLISHED') {
         publishedAt = new Date();
       }
 
@@ -242,7 +242,7 @@ export async function saveProjectAction(
         postHash: inputData.postHash || null,
         status: targetStatus,
         scheduledAt: inputData.scheduledAt ? new Date(inputData.scheduledAt) : null,
-        publishedAt: targetStatus === 'published' ? now : null,
+        publishedAt: targetStatus === 'PUBLISHED' ? now : null,
         versionNote: inputData.versionNote ?? null,
         createdAt: now,
         authorId: actor.userId,
@@ -545,7 +545,7 @@ export async function executeScheduledPublishAction() {
     const now = new Date();
     
     const scheduledToPublish = allProjects.items.filter(p => 
-      p.status === 'scheduled' && 
+      p.status === 'SCHEDULED' && 
       p.scheduledAt && 
       new Date(p.scheduledAt) <= now
     );
@@ -554,7 +554,7 @@ export async function executeScheduledPublishAction() {
 
     for (const project of scheduledToPublish) {
       await cmsDb.updateProject(project.id, {
-        status: 'published',
+        status: 'PUBLISHED',
         publishedAt: now,
         versionNote: 'System publication: scheduled release trigger executed.'
       });
@@ -617,7 +617,7 @@ export async function rollbackProjectVersionAction(projectId: string, versionId:
         coverImage: version.coverImage,
         slug: 'restored-version',
         tags: [],
-        status: 'draft',
+        status: 'DRAFT',
       };
     }
 
@@ -721,6 +721,30 @@ export async function createCategoryAction(name: string, description?: string) {
     }
   } catch (err: any) {
     return { success: false, error: err.message || 'Failed to create category.' };
+  }
+}
+
+// 10.5 Get Categories List
+export async function getCategoriesAction() {
+  try {
+    const prisma = getPrisma();
+    if (prisma) {
+      const categories = await prisma.category.findMany({
+        orderBy: { name: 'asc' }
+      });
+      const serialized = categories.map(c => ({
+        ...c,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
+      }));
+      return { success: true, categories: serialized };
+    } else {
+      const { publicDb } = await import('@/lib/database/publicDb');
+      const categories = await publicDb.getCategories();
+      return { success: true, categories };
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to fetch categories.' };
   }
 }
 

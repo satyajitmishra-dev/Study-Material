@@ -361,7 +361,7 @@ export default function AutomationClient({ initialData }: AutomationClientProps)
     setIsPublishingDraft(id);
     const res = await publishDraftAction(id);
     if (res.success) {
-      setDrafts(prev => prev.map(d => d.id === id ? { ...d, status: 'published', publishUrl: res.url } : d));
+      setDrafts(prev => prev.map(d => d.id === id ? { ...d, status: 'PUBLISHED', publishUrl: res.url } : d));
       alert(`Successfully published! Destination URL: ${res.url}`);
       setShowDraftModal(false);
     } else {
@@ -626,7 +626,7 @@ export default function AutomationClient({ initialData }: AutomationClientProps)
                       <h3 className="text-[14px] font-bold text-warm-white uppercase tracking-wide">
                         Recent Generated Drafts
                       </h3>
-                      <span className="text-[11px] text-stone">Review pending: {drafts.filter(d => d.status === 'draft' || d.status === 'needs_review').length}</span>
+                      <span className="text-[11px] text-stone">Review pending: {drafts.filter(d => d.status === 'DRAFT' || d.status === 'needs_review').length}</span>
                     </div>
                     {drafts.length === 0 ? (
                       <div className="py-8 text-center text-[12px] text-stone">
@@ -648,10 +648,10 @@ export default function AutomationClient({ initialData }: AutomationClientProps)
                                   {d.platform}
                                 </span>
                                 <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold
-                                  ${d.status === 'published' ? 'bg-accent-emerald/10 text-accent-emerald' : ''}
+                                  ${d.status === 'PUBLISHED' ? 'bg-accent-emerald/10 text-accent-emerald' : ''}
                                   ${d.status === 'needs_review' ? 'bg-accent-orange/10 text-accent-orange' : ''}
-                                  ${d.status === 'draft' ? 'bg-charcoal/80 text-stone border border-white/5' : ''}
-                                  ${d.status === 'approved' ? 'bg-accent-violet/15 text-accent-violet' : ''}
+                                  ${d.status === 'DRAFT' ? 'bg-charcoal/80 text-stone border border-white/5' : ''}
+                                  ${d.status === 'APPROVED' ? 'bg-accent-violet/15 text-accent-violet' : ''}
                                 `}>
                                   {d.status}
                                 </span>
@@ -761,10 +761,10 @@ export default function AutomationClient({ initialData }: AutomationClientProps)
                             {d.platform}
                           </span>
                           <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase font-extrabold
-                            ${d.status === 'published' ? 'bg-accent-emerald/10 text-accent-emerald' : ''}
+                            ${d.status === 'PUBLISHED' ? 'bg-accent-emerald/10 text-accent-emerald' : ''}
                             ${d.status === 'needs_review' ? 'bg-accent-orange/10 text-accent-orange' : ''}
-                            ${d.status === 'draft' ? 'bg-charcoal/80 text-stone border border-white/5' : ''}
-                            ${d.status === 'approved' ? 'bg-accent-violet/15 text-accent-violet' : ''}
+                            ${d.status === 'DRAFT' ? 'bg-charcoal/80 text-stone border border-white/5' : ''}
+                            ${d.status === 'APPROVED' ? 'bg-accent-violet/15 text-accent-violet' : ''}
                           `}>
                             {d.status}
                           </span>
